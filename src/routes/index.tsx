@@ -1,0 +1,678 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Wrench, Zap, Hammer, Plug, Settings, MapPin, Camera, Upload, Send,
+  Home, History, User, Menu, LogOut, Sun, Moon, Plus, Minus, Navigation,
+  Briefcase, Map as MapIcon, Bell, Facebook, Mail, ChevronRight, CheckCircle2,
+  Wallet, Phone,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
+import { Toaster } from "@/components/ui/sonner";
+import { cn } from "@/lib/utils";
+
+export const Route = createFileRoute("/")({ component: App });
+
+type Screen = "login" | "client" | "worker";
+type Role = "client" | "worker";
+
+function App() {
+  const [screen, setScreen] = useState<Screen>("login");
+  const [dark, setDark] = useState(false);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", dark);
+  }, [dark]);
+
+  return (
+    <div className="min-h-screen w-full bg-background flex justify-center">
+      <Toaster position="top-center" />
+      <div className="w-full max-w-[440px] min-h-screen bg-background relative overflow-hidden">
+        {screen === "login" && (
+          <LoginScreen
+            onLogin={(role) => setScreen(role === "client" ? "client" : "worker")}
+          />
+        )}
+        {screen === "client" && (
+          <ClientDashboard
+            dark={dark}
+            onToggleDark={() => setDark((d) => !d)}
+            onExit={() => setScreen("login")}
+          />
+        )}
+        {screen === "worker" && (
+          <WorkerDashboard
+            dark={dark}
+            onToggleDark={() => setDark((d) => !d)}
+            onExit={() => setScreen("login")}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────── LOGIN ─────────────── */
+
+function LoginScreen({ onLogin }: { onLogin: (role: Role) => void }) {
+  const [userId, setUserId] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState<Role>("client");
+
+  const submit = () => {
+    if (!userId || !password) {
+      toast.error("Enter your credentials");
+      return;
+    }
+    toast.success(`Welcome back, ${userId}`);
+    setTimeout(() => onLogin(role), 400);
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col px-6 pt-12 pb-8 bg-gradient-to-b from-primary/90 via-primary to-primary text-primary-foreground">
+      {/* Logo */}
+      <div className="flex flex-col items-center mt-4 mb-10">
+        <div className="h-20 w-20 rounded-2xl bg-accent flex items-center justify-center shadow-lg mb-4 rotate-3">
+          <Wrench className="h-10 w-10 text-accent-foreground" strokeWidth={2.5} />
+        </div>
+        <h1 className="text-3xl font-black tracking-tight">
+          SKILL <span className="text-accent">LINK</span> PRO
+        </h1>
+        <p className="text-xs uppercase tracking-[0.25em] opacity-70 mt-1">
+          Trusted Workers · On Demand
+        </p>
+      </div>
+
+      <Card className="bg-card text-card-foreground p-6 rounded-2xl shadow-2xl border-0 space-y-4">
+        <div className="space-y-1.5">
+          <h2 className="text-lg font-bold">Welcome back</h2>
+          <p className="text-xs text-muted-foreground">Sign in to continue</p>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="uid" className="text-xs font-semibold">User ID</Label>
+          <Input id="uid" placeholder="your_username" value={userId}
+            onChange={(e) => setUserId(e.target.value)} />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="pwd" className="text-xs font-semibold">Password</Label>
+          <Input id="pwd" type="password" placeholder="••••••••"
+            value={password} onChange={(e) => setPassword(e.target.value)} />
+          <button className="text-[11px] text-accent font-medium block ml-auto">
+            Forgot password?
+          </button>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label className="text-xs font-semibold">Login as</Label>
+          <div className="grid grid-cols-2 gap-2">
+            {(["client", "worker"] as Role[]).map((r) => (
+              <button
+                key={r}
+                onClick={() => setRole(r)}
+                className={cn(
+                  "py-2 rounded-lg text-xs font-semibold border transition",
+                  role === r
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-secondary text-secondary-foreground border-border",
+                )}
+              >
+                {r === "client" ? "Client" : "Worker"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <Button onClick={submit}
+          className="w-full bg-accent hover:bg-accent/90 text-accent-foreground font-bold h-11 rounded-xl">
+          Login
+        </Button>
+
+        <div className="flex items-center gap-3 my-1">
+          <div className="h-px flex-1 bg-border" />
+          <span className="text-[10px] uppercase tracking-widest text-muted-foreground">or</span>
+          <div className="h-px flex-1 bg-border" />
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="outline" className="h-10 rounded-xl">
+            <Facebook className="h-4 w-4 text-[#1877F2]" /> Facebook
+          </Button>
+          <Button variant="outline" className="h-10 rounded-xl">
+            <Mail className="h-4 w-4 text-[#EA4335]" /> Gmail
+          </Button>
+        </div>
+
+        <button className="w-full text-center text-sm font-semibold text-primary py-2">
+          Create Account
+        </button>
+      </Card>
+
+      <div className="mt-auto pt-8 text-center space-y-3">
+        <div className="flex justify-center gap-4 text-primary-foreground/70">
+          <Phone className="h-4 w-4" />
+          <Mail className="h-4 w-4" />
+          <Facebook className="h-4 w-4" />
+        </div>
+        <p className="text-[10px] opacity-60">Ver 1.1 · © Skill Link Pro</p>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────── CLIENT DASHBOARD ─────────────── */
+
+const CATEGORIES = [
+  { v: "electrician", label: "Electrician", Icon: Zap },
+  { v: "plumber", label: "Plumber", Icon: Wrench },
+  { v: "carpenter", label: "Carpenter", Icon: Hammer },
+  { v: "appliance", label: "Appliance Technician", Icon: Plug },
+  { v: "general", label: "General Repair", Icon: Settings },
+];
+
+function ClientDashboard({
+  dark, onToggleDark, onExit,
+}: { dark: boolean; onToggleDark: () => void; onExit: () => void }) {
+  const [tab, setTab] = useState<"home" | "history" | "profile" | "menu">("home");
+  const [address, setAddress] = useState("123 Rizal St, Manila");
+  const [coords] = useState({ x: 14.5995, y: 120.9842 });
+  const [problem, setProblem] = useState("");
+  const [notes, setNotes] = useState("");
+  const [category, setCategory] = useState("electrician");
+  const [images, setImages] = useState<string[]>([]);
+  const [payment, setPayment] = useState<"cash" | "digital">("cash");
+  const [status, setStatus] = useState<null | string>(null);
+
+  const [history] = useState([
+    { id: 1, title: "Leaking kitchen sink", category: "Plumber", status: "Completed", price: "₱450" },
+    { id: 2, title: "Ceiling fan install", category: "Electrician", status: "Completed", price: "₱600" },
+    { id: 3, title: "Door hinge repair", category: "Carpenter", status: "Completed", price: "₱300" },
+  ]);
+
+  const submit = () => {
+    if (!problem) { toast.error("Describe your issue"); return; }
+    setStatus("Pending");
+    toast.success("Request sent! Finding a worker…");
+    setTimeout(() => setStatus("Accepted"), 1500);
+    setTimeout(() => setStatus("Worker En Route"), 3000);
+  };
+
+  const addImage = () => {
+    const palette = ["#f97316", "#0ea5e9", "#22c55e", "#a855f7", "#ef4444"];
+    setImages((p) => [...p, palette[p.length % palette.length]]);
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col pb-20 bg-background">
+      <DashboardHeader
+        title="Hi, Client"
+        subtitle="What needs fixing today?"
+        dark={dark}
+        onToggleDark={onToggleDark}
+      />
+
+      {tab === "home" && (
+        <div className="px-4 space-y-4">
+          {/* Location card */}
+          <Card className="p-4 rounded-2xl border-0 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-lg bg-accent/15 flex items-center justify-center">
+                  <MapPin className="h-4 w-4 text-accent" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold">Your Location</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    X: {coords.x} · Y: {coords.y}
+                  </p>
+                </div>
+              </div>
+              <Badge variant="secondary" className="text-[10px]">GPS</Badge>
+            </div>
+            <Input value={address} onChange={(e) => setAddress(e.target.value)}
+              placeholder="Search address…" className="h-9" />
+          </Card>
+
+          {/* Service request */}
+          <Card className="p-4 rounded-2xl border-0 shadow-sm space-y-3">
+            <h3 className="text-sm font-bold">Service Request</h3>
+
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Describe your issue
+              </Label>
+              <Textarea
+                value={problem}
+                onChange={(e) => setProblem(e.target.value)}
+                placeholder="Need a worker who can repair or fix the entrance panel."
+                className="min-h-[80px] resize-none"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Additional notes
+              </Label>
+              <Input value={notes} onChange={(e) => setNotes(e.target.value)}
+                placeholder="e.g. Burn damage, urgent" />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Worker category
+              </Label>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {CATEGORIES.map(({ v, label, Icon }) => (
+                    <SelectItem key={v} value={v}>
+                      <span className="flex items-center gap-2">
+                        <Icon className="h-3.5 w-3.5" /> {label}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Image upload */}
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Upload images for servicing
+              </Label>
+              <div className="grid grid-cols-4 gap-2">
+                {images.map((c, i) => (
+                  <div key={i} className="aspect-square rounded-lg border"
+                    style={{ background: `linear-gradient(135deg, ${c}, ${c}aa)` }} />
+                ))}
+                <button onClick={addImage}
+                  className="aspect-square rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center text-muted-foreground hover:border-accent hover:text-accent transition">
+                  <Camera className="h-4 w-4" />
+                  <span className="text-[9px] mt-0.5">Add</span>
+                </button>
+                <button onClick={addImage}
+                  className="aspect-square rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center text-muted-foreground hover:border-accent hover:text-accent transition">
+                  <Upload className="h-4 w-4" />
+                  <span className="text-[9px] mt-0.5">Gallery</span>
+                </button>
+              </div>
+            </div>
+          </Card>
+
+          {/* Payment */}
+          <Card className="p-4 rounded-2xl border-0 shadow-sm space-y-3">
+            <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Payment method
+            </Label>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { v: "cash", label: "Cash" },
+                { v: "digital", label: "Digital" },
+              ].map((o) => (
+                <button key={o.v} onClick={() => setPayment(o.v as "cash" | "digital")}
+                  className={cn(
+                    "py-2.5 rounded-xl text-xs font-semibold border transition",
+                    payment === o.v
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-secondary text-secondary-foreground border-border",
+                  )}>
+                  {o.label}
+                </button>
+              ))}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Button onClick={submit}
+                className="bg-accent hover:bg-accent/90 text-accent-foreground font-bold h-11 rounded-xl">
+                <Send className="h-4 w-4" /> Request
+              </Button>
+              <Button variant="outline" className="h-11 rounded-xl font-bold">
+                <Wallet className="h-4 w-4" /> Pay Now
+              </Button>
+            </div>
+          </Card>
+
+          {status && (
+            <Card className="p-4 rounded-2xl border-0 bg-primary text-primary-foreground shadow-md">
+              <p className="text-[10px] uppercase tracking-widest opacity-70">Job Status</p>
+              <div className="flex items-center justify-between mt-1">
+                <p className="text-lg font-bold">{status}</p>
+                <CheckCircle2 className="h-5 w-5 text-accent" />
+              </div>
+              <div className="mt-3 flex gap-1">
+                {["Pending", "Accepted", "Worker En Route", "In Progress", "Completed"].map((s, i) => {
+                  const idx = ["Pending", "Accepted", "Worker En Route", "In Progress", "Completed"].indexOf(status);
+                  return (
+                    <div key={s} className={cn("h-1 flex-1 rounded-full",
+                      i <= idx ? "bg-accent" : "bg-white/20")} />
+                  );
+                })}
+              </div>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {tab === "history" && (
+        <div className="px-4 space-y-2">
+          <h3 className="text-sm font-bold mb-2">Past Requests</h3>
+          {history.map((h) => (
+            <Card key={h.id} className="p-3 rounded-xl border-0 shadow-sm flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold">{h.title}</p>
+                <p className="text-[11px] text-muted-foreground">{h.category} · {h.status}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-bold text-accent">{h.price}</p>
+                <ChevronRight className="h-4 w-4 inline text-muted-foreground" />
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {tab === "profile" && <ProfileTab name="Juan Dela Cruz" role="Client" />}
+      {tab === "menu" && <MenuTab />}
+
+      <BottomNav
+        items={[
+          { id: "home", Icon: Home, label: "Home" },
+          { id: "history", Icon: History, label: "History" },
+          { id: "profile", Icon: User, label: "Profile" },
+          { id: "menu", Icon: Menu, label: "Menu" },
+          { id: "exit", Icon: LogOut, label: "Exit" },
+        ]}
+        active={tab}
+        onChange={(id) => id === "exit" ? onExit() : setTab(id as typeof tab)}
+      />
+    </div>
+  );
+}
+
+/* ─────────────── WORKER DASHBOARD ─────────────── */
+
+function WorkerDashboard({
+  dark, onToggleDark, onExit,
+}: { dark: boolean; onToggleDark: () => void; onExit: () => void }) {
+  const [tab, setTab] = useState<"jobs" | "map" | "requests" | "menu">("map");
+  const [earnings] = useState(3208);
+  const [zoom, setZoom] = useState(1);
+
+  const requests = useMemo(() => ([
+    { id: 1, client: "Maria S.", title: "Burn damage on entrance panel", distance: "0.8 km", price: "₱650", category: "Electrician" },
+    { id: 2, client: "Carlos R.", title: "Leaking pipe under sink", distance: "1.4 km", price: "₱400", category: "Plumber" },
+    { id: 3, client: "Lara P.", title: "Broken door hinge", distance: "2.1 km", price: "₱350", category: "Carpenter" },
+  ]), []);
+
+  return (
+    <div className="min-h-screen flex flex-col pb-20 bg-background">
+      {/* Top bar */}
+      <div className="px-4 pt-10 pb-4 bg-primary text-primary-foreground">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[10px] uppercase tracking-widest opacity-70">Wallet</p>
+            <p className="text-2xl font-black">₱{earnings.toLocaleString()}.00</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge className="bg-accent text-accent-foreground hover:bg-accent gap-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+              Live GPS
+            </Badge>
+            <button onClick={onToggleDark}
+              className="h-9 w-9 rounded-full bg-white/10 flex items-center justify-center">
+              {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {tab === "map" && (
+        <div className="px-4 -mt-2">
+          <Card className="rounded-2xl border-0 overflow-hidden shadow-md relative h-[420px] p-0">
+            <MapMock zoom={zoom} />
+            {/* Map controls */}
+            <div className="absolute right-3 top-3 flex flex-col gap-1.5">
+              <button onClick={() => setZoom((z) => Math.min(z + 0.2, 2))}
+                className="h-9 w-9 rounded-full bg-card shadow flex items-center justify-center">
+                <Plus className="h-4 w-4" />
+              </button>
+              <button onClick={() => setZoom((z) => Math.max(z - 0.2, 0.6))}
+                className="h-9 w-9 rounded-full bg-card shadow flex items-center justify-center">
+                <Minus className="h-4 w-4" />
+              </button>
+              <button className="h-9 w-9 rounded-full bg-accent text-accent-foreground shadow flex items-center justify-center">
+                <Navigation className="h-4 w-4" />
+              </button>
+            </div>
+            {/* Bottom job card on map */}
+            <div className="absolute bottom-3 left-3 right-3">
+              <Card className="p-3 rounded-xl border-0 shadow-lg flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-accent/20 flex items-center justify-center">
+                  <Zap className="h-5 w-5 text-accent" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold truncate">Maria S. · Electrician</p>
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    Burn damage · 0.8 km · ₱650
+                  </p>
+                </div>
+                <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90 h-8">
+                  Navigate
+                </Button>
+              </Card>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {tab === "jobs" && (
+        <div className="px-4 space-y-2">
+          <h3 className="text-sm font-bold mb-2">Current Jobs</h3>
+          <Card className="p-4 rounded-2xl border-0 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <Badge className="bg-accent/15 text-accent hover:bg-accent/15 mb-2">
+                  On The Way
+                </Badge>
+                <p className="text-sm font-bold">Maria S.</p>
+                <p className="text-[11px] text-muted-foreground">
+                  Burn damage on entrance panel
+                </p>
+              </div>
+              <p className="text-lg font-black text-accent">₱650</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 mt-3">
+              <Button variant="outline" className="rounded-xl">Cancel</Button>
+              <Button className="bg-primary rounded-xl">Start Job</Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {tab === "requests" && (
+        <div className="px-4 space-y-2">
+          <h3 className="text-sm font-bold mb-2">Client Requests</h3>
+          {requests.map((r) => (
+            <Card key={r.id} className="p-3 rounded-2xl border-0 shadow-sm">
+              <div className="flex items-start justify-between">
+                <div className="flex gap-3">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <User className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold">{r.client}</p>
+                    <p className="text-[11px] text-muted-foreground">{r.title}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      {r.category} · {r.distance}
+                    </p>
+                  </div>
+                </div>
+                <p className="text-sm font-bold text-accent">{r.price}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-2 mt-3">
+                <Button variant="outline" size="sm" className="rounded-lg"
+                  onClick={() => toast("Rejected")}>Reject</Button>
+                <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90 rounded-lg"
+                  onClick={() => toast.success("Job accepted!")}>Accept</Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {tab === "menu" && <MenuTab />}
+
+      <BottomNav
+        items={[
+          { id: "jobs", Icon: Briefcase, label: "Jobs" },
+          { id: "map", Icon: MapIcon, label: "Map" },
+          { id: "requests", Icon: Bell, label: "Requests" },
+          { id: "menu", Icon: Menu, label: "Menu" },
+          { id: "exit", Icon: LogOut, label: "Exit" },
+        ]}
+        active={tab}
+        onChange={(id) => id === "exit" ? onExit() : setTab(id as typeof tab)}
+      />
+    </div>
+  );
+}
+
+/* ─────────────── SHARED ─────────────── */
+
+function DashboardHeader({
+  title, subtitle, dark, onToggleDark,
+}: { title: string; subtitle: string; dark: boolean; onToggleDark: () => void }) {
+  return (
+    <div className="px-4 pt-10 pb-4 flex items-center justify-between">
+      <div>
+        <p className="text-[11px] uppercase tracking-widest text-muted-foreground">
+          {subtitle}
+        </p>
+        <h2 className="text-xl font-black">{title}</h2>
+      </div>
+      <div className="flex items-center gap-2">
+        <button onClick={onToggleDark}
+          className="h-9 w-9 rounded-full bg-secondary flex items-center justify-center">
+          {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+        </button>
+        <div className="h-9 w-9 rounded-full bg-accent flex items-center justify-center">
+          <User className="h-4 w-4 text-accent-foreground" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BottomNav({
+  items, active, onChange,
+}: {
+  items: { id: string; Icon: typeof Home; label: string }[];
+  active: string;
+  onChange: (id: string) => void;
+}) {
+  return (
+    <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[440px] bg-card border-t border-border z-50">
+      <div className="grid grid-cols-5 px-1">
+        {items.map(({ id, Icon, label }) => {
+          const isActive = active === id;
+          return (
+            <button key={id} onClick={() => onChange(id)}
+              className={cn(
+                "py-2.5 flex flex-col items-center gap-0.5 transition",
+                isActive ? "text-accent" : "text-muted-foreground",
+              )}>
+              <Icon className={cn("h-5 w-5", isActive && "scale-110")} />
+              <span className="text-[10px] font-medium">{label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ProfileTab({ name, role }: { name: string; role: string }) {
+  return (
+    <div className="px-4">
+      <Card className="p-5 rounded-2xl border-0 shadow-sm text-center">
+        <div className="h-20 w-20 rounded-full bg-accent mx-auto flex items-center justify-center mb-3">
+          <User className="h-10 w-10 text-accent-foreground" />
+        </div>
+        <h3 className="text-base font-bold">{name}</h3>
+        <p className="text-xs text-muted-foreground">{role}</p>
+        <div className="grid grid-cols-3 gap-2 mt-5 text-center">
+          {[["12", "Jobs"], ["4.8", "Rating"], ["98%", "On-time"]].map(([v, l]) => (
+            <div key={l} className="p-2 rounded-lg bg-secondary">
+              <p className="text-sm font-black">{v}</p>
+              <p className="text-[10px] text-muted-foreground">{l}</p>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function MenuTab() {
+  const items = ["Settings", "Notifications", "Payment Methods", "Help & Support", "About"];
+  return (
+    <div className="px-4 space-y-2">
+      {items.map((i) => (
+        <Card key={i} className="p-3.5 rounded-xl border-0 shadow-sm flex items-center justify-between">
+          <p className="text-sm font-medium">{i}</p>
+          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+/* Schematic map (CSS-only) */
+function MapMock({ zoom }: { zoom: number }) {
+  return (
+    <div className="relative w-full h-full bg-[#dde6ef] dark:bg-[#1e2a3a] overflow-hidden"
+      style={{ transform: `scale(${zoom})`, transformOrigin: "center" }}>
+      {/* grid streets */}
+      <div className="absolute inset-0"
+        style={{
+          backgroundImage:
+            "linear-gradient(#ffffff55 1px, transparent 1px), linear-gradient(90deg, #ffffff55 1px, transparent 1px)",
+          backgroundSize: "40px 40px",
+        }} />
+      {/* major roads */}
+      <div className="absolute left-0 right-0 top-1/2 h-2 bg-white/80 dark:bg-white/30" />
+      <div className="absolute top-0 bottom-0 left-1/3 w-2 bg-white/80 dark:bg-white/30" />
+      {/* route line */}
+      <svg className="absolute inset-0 w-full h-full" viewBox="0 0 400 400" preserveAspectRatio="none">
+        <path d="M 80 300 Q 180 220 220 180 T 320 80"
+          stroke="oklch(0.72 0.19 50)" strokeWidth="4" fill="none" strokeDasharray="6 6" />
+      </svg>
+      {/* worker pin */}
+      <div className="absolute" style={{ left: "20%", top: "75%" }}>
+        <div className="relative -translate-x-1/2 -translate-y-full">
+          <div className="h-9 w-9 rounded-full bg-primary border-4 border-white shadow-lg flex items-center justify-center">
+            <Navigation className="h-4 w-4 text-primary-foreground" />
+          </div>
+          <p className="text-[10px] font-bold text-center mt-1 text-primary">You</p>
+        </div>
+      </div>
+      {/* client pin */}
+      <div className="absolute" style={{ left: "80%", top: "20%" }}>
+        <div className="relative -translate-x-1/2 -translate-y-full">
+          <div className="h-9 w-9 rounded-full bg-accent border-4 border-white shadow-lg flex items-center justify-center">
+            <MapPin className="h-4 w-4 text-accent-foreground" />
+          </div>
+          <p className="text-[10px] font-bold text-center mt-1 text-accent">Client</p>
+        </div>
+      </div>
+    </div>
+  );
+}
