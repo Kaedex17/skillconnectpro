@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
+import { jobStore, useJobs, type Job, type JobStatus } from "@/lib/jobStore";
 
 export const Route = createFileRoute("/")({ component: App });
 
