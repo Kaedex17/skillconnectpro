@@ -504,38 +504,54 @@ function WorkerDashboard({
       {tab === "map" && (
         <div className="px-4 -mt-2">
           <Card className="rounded-2xl border-0 overflow-hidden shadow-md relative h-[420px] p-0">
-            <MapMock zoom={zoom} />
-            {/* Map controls */}
-            <div className="absolute right-3 top-3 flex flex-col gap-1.5">
-              <button onClick={() => setZoom((z) => Math.min(z + 0.2, 2))}
-                className="h-9 w-9 rounded-full bg-card shadow flex items-center justify-center">
-                <Plus className="h-4 w-4" />
-              </button>
-              <button onClick={() => setZoom((z) => Math.max(z - 0.2, 0.6))}
-                className="h-9 w-9 rounded-full bg-card shadow flex items-center justify-center">
-                <Minus className="h-4 w-4" />
-              </button>
-              <button className="h-9 w-9 rounded-full bg-accent text-accent-foreground shadow flex items-center justify-center">
-                <Navigation className="h-4 w-4" />
-              </button>
-            </div>
-            {/* Bottom job card on map */}
-            <div className="absolute bottom-3 left-3 right-3">
-              <Card className="p-3 rounded-xl border-0 shadow-lg flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-accent/20 flex items-center justify-center">
-                  <Zap className="h-5 w-5 text-accent" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold truncate">Maria S. · Electrician</p>
-                  <p className="text-[11px] text-muted-foreground truncate">
-                    Burn damage · 0.8 km · ₱650
-                  </p>
-                </div>
-                <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90 h-8">
-                  Navigate
-                </Button>
-              </Card>
-            </div>
+            {(() => {
+              const live = myActiveJobs[0];
+              return (
+                <>
+                  <MapMock
+                    zoom={zoom}
+                    workerLoc={live?.workerLoc}
+                    clientLoc={live?.clientLoc}
+                    progress={live?.progress}
+                    workerLabel={workerName}
+                    clientLabel={live?.client ?? "Client"}
+                  />
+                  <div className="absolute right-3 top-3 flex flex-col gap-1.5">
+                    <button onClick={() => setZoom((z) => Math.min(z + 0.2, 2))}
+                      className="h-9 w-9 rounded-full bg-card shadow flex items-center justify-center">
+                      <Plus className="h-4 w-4" />
+                    </button>
+                    <button onClick={() => setZoom((z) => Math.max(z - 0.2, 0.6))}
+                      className="h-9 w-9 rounded-full bg-card shadow flex items-center justify-center">
+                      <Minus className="h-4 w-4" />
+                    </button>
+                    <button className="h-9 w-9 rounded-full bg-accent text-accent-foreground shadow flex items-center justify-center">
+                      <Navigation className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className="absolute bottom-3 left-3 right-3">
+                    <Card className="p-3 rounded-xl border-0 shadow-lg flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-full bg-accent/20 flex items-center justify-center">
+                        <Zap className="h-5 w-5 text-accent" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold truncate">
+                          {live ? `${live.client} · ${live.category}` : "No active job"}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground truncate">
+                          {live
+                            ? `${live.title} · ${live.distance} · ${live.price}`
+                            : "Accept a request to start tracking"}
+                        </p>
+                      </div>
+                      <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90 h-8">
+                        Navigate
+                      </Button>
+                    </Card>
+                  </div>
+                </>
+              );
+            })()}
           </Card>
         </div>
       )}
