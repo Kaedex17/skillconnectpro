@@ -63,6 +63,11 @@ export const jobStore = {
 
 export function useJobs(): Job[] {
   const [snap, setSnap] = useState<Job[]>(jobStore.getAll());
-  useEffect(() => jobStore.subscribe(() => setSnap([...jobStore.getAll()])), []);
+  useEffect(() => {
+    const unsub = jobStore.subscribe(() => setSnap([...jobStore.getAll()]));
+    return () => {
+      unsub();
+    };
+  }, []);
   return snap;
 }
