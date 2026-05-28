@@ -378,6 +378,19 @@ function ClientDashboard({
             </div>
           </Card>
 
+          {activeJob && ["Accepted", "Worker En Route", "In Progress"].includes(activeJob.status) && (
+            <Card className="rounded-2xl border-0 overflow-hidden shadow-md p-0 h-[260px] relative">
+              <MapMock
+                zoom={1}
+                workerLoc={activeJob.workerLoc}
+                clientLoc={activeJob.clientLoc}
+                progress={activeJob.progress}
+                workerLabel={activeJob.workerName ?? "Worker"}
+                clientLabel="You"
+              />
+            </Card>
+          )}
+
           {status && (
             <Card className="p-4 rounded-2xl border-0 bg-primary text-primary-foreground shadow-md">
               <p className="text-[10px] uppercase tracking-widest opacity-70">Job Status</p>
