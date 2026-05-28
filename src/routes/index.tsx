@@ -440,15 +440,44 @@ function ClientDashboard({
 function WorkerDashboard({
   dark, onToggleDark, onExit,
 }: { dark: boolean; onToggleDark: () => void; onExit: () => void }) {
-  const [tab, setTab] = useState<"jobs" | "map" | "requests" | "menu">("map");
+  const [tab, setTab] = useState<"jobs" | "map" | "requests" | "menu">("requests");
   const [earnings] = useState(3208);
   const [zoom, setZoom] = useState(1);
+  const workerName = "Pedro M.";
 
-  const requests = useMemo(() => ([
-    { id: 1, client: "Maria S.", title: "Burn damage on entrance panel", distance: "0.8 km", price: "₱650", category: "Electrician" },
-    { id: 2, client: "Carlos R.", title: "Leaking pipe under sink", distance: "1.4 km", price: "₱400", category: "Plumber" },
-    { id: 3, client: "Lara P.", title: "Broken door hinge", distance: "2.1 km", price: "₱350", category: "Carpenter" },
-  ]), []);
+  const allJobs = useJobs();
+  const pendingRequests = useMemo(
+    () => allJobs.filter((j) => j.status === "Pending"),
+    [allJobs],
+  );
+  const myActiveJobs = useMemo(
+    () =>
+      allJobs.filter(
+        (j) =>
+          j.workerName === workerName &&
+          ["Accepted", "Worker En Route", "In Progress"].includes(j.status),
+      ),
+    [allJobs],
+  );
+
+  const accept = (j: Job) => {
+    jobStore.setStatus(j.id, "Accepted", workerName);
+    setTimeout(() => jobStore.setStatus(j.id, "Worker En Route"), 1200);
+    toast.success(`Accepted ${j.client}'s request`);
+    setTab("jobs");
+  };
+  const reject = (j: Job) => {
+    jobStore.setStatus(j.id, "Rejected");
+    toast("Request rejected");
+  };
+  const startJob = (j: Job) => {
+    jobStore.setStatus(j.id, "In Progress");
+    toast.success("Job started");
+  };
+  const completeJob = (j: Job) => {
+    jobStore.setStatus(j.id, "Completed");
+    toast.success("Job completed");
+  };
 
   return (
     <div className="min-h-screen flex flex-col pb-20 bg-background">
