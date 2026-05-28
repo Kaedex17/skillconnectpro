@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
+import { jobStore, useJobs, type Job, type JobStatus } from "@/lib/jobStore";
 
 export const Route = createFileRoute("/")({ component: App });
 
@@ -190,7 +191,31 @@ function ClientDashboard({
   const [category, setCategory] = useState("electrician");
   const [images, setImages] = useState<string[]>([]);
   const [payment, setPayment] = useState<"cash" | "digital">("cash");
-  const [status, setStatus] = useState<null | string>(null);
+  const [activeJobId, setActiveJobId] = useState<number | null>(null);
+
+  const jobs = useJobs();
+  const activeJob = useMemo(
+    () => jobs.find((j) => j.id === activeJobId) ?? null,
+    [jobs, activeJobId],
+  );
+  const status = activeJob?.status ?? null;
+
+  // Notify on status transitions
+  const [lastStatus, setLastStatus] = useState<JobStatus | null>(null);
+  useEffect(() => {
+    if (!activeJob) return;
+    if (activeJob.status === lastStatus) return;
+    setLastStatus(activeJob.status);
+    if (activeJob.status === "Accepted") {
+      toast.success(`${activeJob.workerName ?? "A worker"} accepted your request!`);
+    } else if (activeJob.status === "Rejected") {
+      toast.error("Worker rejected — searching for another…");
+    } else if (activeJob.status === "Worker En Route") {
+      toast(`${activeJob.workerName ?? "Worker"} is on the way`);
+    } else if (activeJob.status === "Completed") {
+      toast.success("Job completed");
+    }
+  }, [activeJob, lastStatus]);
 
   const [history] = useState([
     { id: 1, title: "Leaking kitchen sink", category: "Plumber", status: "Completed", price: "₱450" },
@@ -200,10 +225,23 @@ function ClientDashboard({
 
   const submit = () => {
     if (!problem) { toast.error("Describe your issue"); return; }
-    setStatus("Pending");
+    if (activeJob && !["Completed", "Rejected"].includes(activeJob.status)) {
+      toast.error("You already have an active request");
+      return;
+    }
+    const cat = CATEGORIES.find((c) => c.v === category)?.label ?? category;
+    const job = jobStore.create({
+      client: "Juan D.",
+      category: cat,
+      title: problem,
+      notes,
+      address,
+      distance: `${(0.5 + Math.random() * 2).toFixed(1)} km`,
+      price: `₱${(300 + Math.floor(Math.random() * 500))}`,
+    });
+    setActiveJobId(job.id);
+    setLastStatus("Pending");
     toast.success("Request sent! Finding a worker…");
-    setTimeout(() => setStatus("Accepted"), 1500);
-    setTimeout(() => setStatus("Worker En Route"), 3000);
   };
 
   const addImage = () => {
@@ -402,15 +440,44 @@ function ClientDashboard({
 function WorkerDashboard({
   dark, onToggleDark, onExit,
 }: { dark: boolean; onToggleDark: () => void; onExit: () => void }) {
-  const [tab, setTab] = useState<"jobs" | "map" | "requests" | "menu">("map");
+  const [tab, setTab] = useState<"jobs" | "map" | "requests" | "menu">("requests");
   const [earnings] = useState(3208);
   const [zoom, setZoom] = useState(1);
+  const workerName = "Pedro M.";
 
-  const requests = useMemo(() => ([
-    { id: 1, client: "Maria S.", title: "Burn damage on entrance panel", distance: "0.8 km", price: "₱650", category: "Electrician" },
-    { id: 2, client: "Carlos R.", title: "Leaking pipe under sink", distance: "1.4 km", price: "₱400", category: "Plumber" },
-    { id: 3, client: "Lara P.", title: "Broken door hinge", distance: "2.1 km", price: "₱350", category: "Carpenter" },
-  ]), []);
+  const allJobs = useJobs();
+  const pendingRequests = useMemo(
+    () => allJobs.filter((j) => j.status === "Pending"),
+    [allJobs],
+  );
+  const myActiveJobs = useMemo(
+    () =>
+      allJobs.filter(
+        (j) =>
+          j.workerName === workerName &&
+          ["Accepted", "Worker En Route", "In Progress"].includes(j.status),
+      ),
+    [allJobs],
+  );
+
+  const accept = (j: Job) => {
+    jobStore.setStatus(j.id, "Accepted", workerName);
+    setTimeout(() => jobStore.setStatus(j.id, "Worker En Route"), 1200);
+    toast.success(`Accepted ${j.client}'s request`);
+    setTab("jobs");
+  };
+  const reject = (j: Job) => {
+    jobStore.setStatus(j.id, "Rejected");
+    toast("Request rejected");
+  };
+  const startJob = (j: Job) => {
+    jobStore.setStatus(j.id, "In Progress");
+    toast.success("Job started");
+  };
+  const completeJob = (j: Job) => {
+    jobStore.setStatus(j.id, "Completed");
+    toast.success("Job completed");
+  };
 
   return (
     <div className="min-h-screen flex flex-col pb-20 bg-background">
@@ -476,31 +543,69 @@ function WorkerDashboard({
       {tab === "jobs" && (
         <div className="px-4 space-y-2">
           <h3 className="text-sm font-bold mb-2">Current Jobs</h3>
-          <Card className="p-4 rounded-2xl border-0 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <Badge className="bg-accent/15 text-accent hover:bg-accent/15 mb-2">
-                  On The Way
-                </Badge>
-                <p className="text-sm font-bold">Maria S.</p>
-                <p className="text-[11px] text-muted-foreground">
-                  Burn damage on entrance panel
-                </p>
+          {myActiveJobs.length === 0 && (
+            <Card className="p-6 rounded-2xl border-0 shadow-sm text-center">
+              <p className="text-sm text-muted-foreground">No active jobs.</p>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Accept a request from the Requests tab.
+              </p>
+            </Card>
+          )}
+          {myActiveJobs.map((j) => (
+            <Card key={j.id} className="p-4 rounded-2xl border-0 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Badge className="bg-accent/15 text-accent hover:bg-accent/15 mb-2">
+                    {j.status}
+                  </Badge>
+                  <p className="text-sm font-bold">{j.client}</p>
+                  <p className="text-[11px] text-muted-foreground">{j.title}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{j.address}</p>
+                </div>
+                <p className="text-lg font-black text-accent">{j.price}</p>
               </div>
-              <p className="text-lg font-black text-accent">₱650</p>
-            </div>
-            <div className="grid grid-cols-2 gap-2 mt-3">
-              <Button variant="outline" className="rounded-xl">Cancel</Button>
-              <Button className="bg-primary rounded-xl">Start Job</Button>
-            </div>
-          </Card>
+              <div className="grid grid-cols-2 gap-2 mt-3">
+                {j.status !== "In Progress" ? (
+                  <>
+                    <Button variant="outline" className="rounded-xl"
+                      onClick={() => { jobStore.setStatus(j.id, "Rejected"); toast("Cancelled"); }}>
+                      Cancel
+                    </Button>
+                    <Button className="bg-primary rounded-xl" onClick={() => startJob(j)}>
+                      Start Job
+                    </Button>
+                  </>
+                ) : (
+                  <Button className="col-span-2 bg-accent text-accent-foreground hover:bg-accent/90 rounded-xl"
+                    onClick={() => completeJob(j)}>
+                    Mark Completed
+                  </Button>
+                )}
+              </div>
+            </Card>
+          ))}
         </div>
       )}
 
       {tab === "requests" && (
         <div className="px-4 space-y-2">
-          <h3 className="text-sm font-bold mb-2">Client Requests</h3>
-          {requests.map((r) => (
+          <h3 className="text-sm font-bold mb-2">
+            Client Requests
+            {pendingRequests.length > 0 && (
+              <Badge className="ml-2 bg-accent text-accent-foreground hover:bg-accent">
+                {pendingRequests.length} new
+              </Badge>
+            )}
+          </h3>
+          {pendingRequests.length === 0 && (
+            <Card className="p-6 rounded-2xl border-0 shadow-sm text-center">
+              <p className="text-sm text-muted-foreground">No pending requests.</p>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                New client requests will appear here in real time.
+              </p>
+            </Card>
+          )}
+          {pendingRequests.map((r) => (
             <Card key={r.id} className="p-3 rounded-2xl border-0 shadow-sm">
               <div className="flex items-start justify-between">
                 <div className="flex gap-3">
@@ -519,9 +624,9 @@ function WorkerDashboard({
               </div>
               <div className="grid grid-cols-2 gap-2 mt-3">
                 <Button variant="outline" size="sm" className="rounded-lg"
-                  onClick={() => toast("Rejected")}>Reject</Button>
+                  onClick={() => reject(r)}>Reject</Button>
                 <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90 rounded-lg"
-                  onClick={() => toast.success("Job accepted!")}>Accept</Button>
+                  onClick={() => accept(r)}>Accept</Button>
               </div>
             </Card>
           ))}
