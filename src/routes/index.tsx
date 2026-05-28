@@ -543,31 +543,69 @@ function WorkerDashboard({
       {tab === "jobs" && (
         <div className="px-4 space-y-2">
           <h3 className="text-sm font-bold mb-2">Current Jobs</h3>
-          <Card className="p-4 rounded-2xl border-0 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <Badge className="bg-accent/15 text-accent hover:bg-accent/15 mb-2">
-                  On The Way
-                </Badge>
-                <p className="text-sm font-bold">Maria S.</p>
-                <p className="text-[11px] text-muted-foreground">
-                  Burn damage on entrance panel
-                </p>
+          {myActiveJobs.length === 0 && (
+            <Card className="p-6 rounded-2xl border-0 shadow-sm text-center">
+              <p className="text-sm text-muted-foreground">No active jobs.</p>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Accept a request from the Requests tab.
+              </p>
+            </Card>
+          )}
+          {myActiveJobs.map((j) => (
+            <Card key={j.id} className="p-4 rounded-2xl border-0 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Badge className="bg-accent/15 text-accent hover:bg-accent/15 mb-2">
+                    {j.status}
+                  </Badge>
+                  <p className="text-sm font-bold">{j.client}</p>
+                  <p className="text-[11px] text-muted-foreground">{j.title}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{j.address}</p>
+                </div>
+                <p className="text-lg font-black text-accent">{j.price}</p>
               </div>
-              <p className="text-lg font-black text-accent">₱650</p>
-            </div>
-            <div className="grid grid-cols-2 gap-2 mt-3">
-              <Button variant="outline" className="rounded-xl">Cancel</Button>
-              <Button className="bg-primary rounded-xl">Start Job</Button>
-            </div>
-          </Card>
+              <div className="grid grid-cols-2 gap-2 mt-3">
+                {j.status !== "In Progress" ? (
+                  <>
+                    <Button variant="outline" className="rounded-xl"
+                      onClick={() => { jobStore.setStatus(j.id, "Rejected"); toast("Cancelled"); }}>
+                      Cancel
+                    </Button>
+                    <Button className="bg-primary rounded-xl" onClick={() => startJob(j)}>
+                      Start Job
+                    </Button>
+                  </>
+                ) : (
+                  <Button className="col-span-2 bg-accent text-accent-foreground hover:bg-accent/90 rounded-xl"
+                    onClick={() => completeJob(j)}>
+                    Mark Completed
+                  </Button>
+                )}
+              </div>
+            </Card>
+          ))}
         </div>
       )}
 
       {tab === "requests" && (
         <div className="px-4 space-y-2">
-          <h3 className="text-sm font-bold mb-2">Client Requests</h3>
-          {requests.map((r) => (
+          <h3 className="text-sm font-bold mb-2">
+            Client Requests
+            {pendingRequests.length > 0 && (
+              <Badge className="ml-2 bg-accent text-accent-foreground hover:bg-accent">
+                {pendingRequests.length} new
+              </Badge>
+            )}
+          </h3>
+          {pendingRequests.length === 0 && (
+            <Card className="p-6 rounded-2xl border-0 shadow-sm text-center">
+              <p className="text-sm text-muted-foreground">No pending requests.</p>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                New client requests will appear here in real time.
+              </p>
+            </Card>
+          )}
+          {pendingRequests.map((r) => (
             <Card key={r.id} className="p-3 rounded-2xl border-0 shadow-sm">
               <div className="flex items-start justify-between">
                 <div className="flex gap-3">
@@ -586,9 +624,9 @@ function WorkerDashboard({
               </div>
               <div className="grid grid-cols-2 gap-2 mt-3">
                 <Button variant="outline" size="sm" className="rounded-lg"
-                  onClick={() => toast("Rejected")}>Reject</Button>
+                  onClick={() => reject(r)}>Reject</Button>
                 <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90 rounded-lg"
-                  onClick={() => toast.success("Job accepted!")}>Accept</Button>
+                  onClick={() => accept(r)}>Accept</Button>
               </div>
             </Card>
           ))}
