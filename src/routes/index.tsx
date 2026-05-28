@@ -191,7 +191,31 @@ function ClientDashboard({
   const [category, setCategory] = useState("electrician");
   const [images, setImages] = useState<string[]>([]);
   const [payment, setPayment] = useState<"cash" | "digital">("cash");
-  const [status, setStatus] = useState<null | string>(null);
+  const [activeJobId, setActiveJobId] = useState<number | null>(null);
+
+  const jobs = useJobs();
+  const activeJob = useMemo(
+    () => jobs.find((j) => j.id === activeJobId) ?? null,
+    [jobs, activeJobId],
+  );
+  const status = activeJob?.status ?? null;
+
+  // Notify on status transitions
+  const [lastStatus, setLastStatus] = useState<JobStatus | null>(null);
+  useEffect(() => {
+    if (!activeJob) return;
+    if (activeJob.status === lastStatus) return;
+    setLastStatus(activeJob.status);
+    if (activeJob.status === "Accepted") {
+      toast.success(`${activeJob.workerName ?? "A worker"} accepted your request!`);
+    } else if (activeJob.status === "Rejected") {
+      toast.error("Worker rejected — searching for another…");
+    } else if (activeJob.status === "Worker En Route") {
+      toast(`${activeJob.workerName ?? "Worker"} is on the way`);
+    } else if (activeJob.status === "Completed") {
+      toast.success("Job completed");
+    }
+  }, [activeJob, lastStatus]);
 
   const [history] = useState([
     { id: 1, title: "Leaking kitchen sink", category: "Plumber", status: "Completed", price: "₱450" },
@@ -201,10 +225,23 @@ function ClientDashboard({
 
   const submit = () => {
     if (!problem) { toast.error("Describe your issue"); return; }
-    setStatus("Pending");
+    if (activeJob && !["Completed", "Rejected"].includes(activeJob.status)) {
+      toast.error("You already have an active request");
+      return;
+    }
+    const cat = CATEGORIES.find((c) => c.v === category)?.label ?? category;
+    const job = jobStore.create({
+      client: "Juan D.",
+      category: cat,
+      title: problem,
+      notes,
+      address,
+      distance: `${(0.5 + Math.random() * 2).toFixed(1)} km`,
+      price: `₱${(300 + Math.floor(Math.random() * 500))}`,
+    });
+    setActiveJobId(job.id);
+    setLastStatus("Pending");
     toast.success("Request sent! Finding a worker…");
-    setTimeout(() => setStatus("Accepted"), 1500);
-    setTimeout(() => setStatus("Worker En Route"), 3000);
   };
 
   const addImage = () => {
