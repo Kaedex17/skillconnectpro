@@ -378,6 +378,19 @@ function ClientDashboard({
             </div>
           </Card>
 
+          {activeJob && ["Accepted", "Worker En Route", "In Progress"].includes(activeJob.status) && (
+            <Card className="rounded-2xl border-0 overflow-hidden shadow-md p-0 h-[260px] relative">
+              <MapMock
+                zoom={1}
+                workerLoc={activeJob.workerLoc}
+                clientLoc={activeJob.clientLoc}
+                progress={activeJob.progress}
+                workerLabel={activeJob.workerName ?? "Worker"}
+                clientLabel="You"
+              />
+            </Card>
+          )}
+
           {status && (
             <Card className="p-4 rounded-2xl border-0 bg-primary text-primary-foreground shadow-md">
               <p className="text-[10px] uppercase tracking-widest opacity-70">Job Status</p>
@@ -504,38 +517,54 @@ function WorkerDashboard({
       {tab === "map" && (
         <div className="px-4 -mt-2">
           <Card className="rounded-2xl border-0 overflow-hidden shadow-md relative h-[420px] p-0">
-            <MapMock zoom={zoom} />
-            {/* Map controls */}
-            <div className="absolute right-3 top-3 flex flex-col gap-1.5">
-              <button onClick={() => setZoom((z) => Math.min(z + 0.2, 2))}
-                className="h-9 w-9 rounded-full bg-card shadow flex items-center justify-center">
-                <Plus className="h-4 w-4" />
-              </button>
-              <button onClick={() => setZoom((z) => Math.max(z - 0.2, 0.6))}
-                className="h-9 w-9 rounded-full bg-card shadow flex items-center justify-center">
-                <Minus className="h-4 w-4" />
-              </button>
-              <button className="h-9 w-9 rounded-full bg-accent text-accent-foreground shadow flex items-center justify-center">
-                <Navigation className="h-4 w-4" />
-              </button>
-            </div>
-            {/* Bottom job card on map */}
-            <div className="absolute bottom-3 left-3 right-3">
-              <Card className="p-3 rounded-xl border-0 shadow-lg flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-accent/20 flex items-center justify-center">
-                  <Zap className="h-5 w-5 text-accent" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold truncate">Maria S. · Electrician</p>
-                  <p className="text-[11px] text-muted-foreground truncate">
-                    Burn damage · 0.8 km · ₱650
-                  </p>
-                </div>
-                <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90 h-8">
-                  Navigate
-                </Button>
-              </Card>
-            </div>
+            {(() => {
+              const live = myActiveJobs[0];
+              return (
+                <>
+                  <MapMock
+                    zoom={zoom}
+                    workerLoc={live?.workerLoc}
+                    clientLoc={live?.clientLoc}
+                    progress={live?.progress}
+                    workerLabel={workerName}
+                    clientLabel={live?.client ?? "Client"}
+                  />
+                  <div className="absolute right-3 top-3 flex flex-col gap-1.5">
+                    <button onClick={() => setZoom((z) => Math.min(z + 0.2, 2))}
+                      className="h-9 w-9 rounded-full bg-card shadow flex items-center justify-center">
+                      <Plus className="h-4 w-4" />
+                    </button>
+                    <button onClick={() => setZoom((z) => Math.max(z - 0.2, 0.6))}
+                      className="h-9 w-9 rounded-full bg-card shadow flex items-center justify-center">
+                      <Minus className="h-4 w-4" />
+                    </button>
+                    <button className="h-9 w-9 rounded-full bg-accent text-accent-foreground shadow flex items-center justify-center">
+                      <Navigation className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className="absolute bottom-3 left-3 right-3">
+                    <Card className="p-3 rounded-xl border-0 shadow-lg flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-full bg-accent/20 flex items-center justify-center">
+                        <Zap className="h-5 w-5 text-accent" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold truncate">
+                          {live ? `${live.client} · ${live.category}` : "No active job"}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground truncate">
+                          {live
+                            ? `${live.title} · ${live.distance} · ${live.price}`
+                            : "Accept a request to start tracking"}
+                        </p>
+                      </div>
+                      <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90 h-8">
+                        Navigate
+                      </Button>
+                    </Card>
+                  </div>
+                </>
+              );
+            })()}
           </Card>
         </div>
       )}
@@ -740,42 +769,85 @@ function MenuTab() {
   );
 }
 
-/* Schematic map (CSS-only) */
-function MapMock({ zoom }: { zoom: number }) {
+/* Schematic map (CSS-only) — renders live worker/client positions */
+function MapMock({
+  zoom,
+  workerLoc,
+  clientLoc,
+  progress,
+  workerLabel = "You",
+  clientLabel = "Client",
+}: {
+  zoom: number;
+  workerLoc?: { x: number; y: number };
+  clientLoc?: { x: number; y: number };
+  progress?: number;
+  workerLabel?: string;
+  clientLabel?: string;
+}) {
+  const w = workerLoc ?? { x: 20, y: 75 };
+  const c = clientLoc ?? { x: 80, y: 20 };
   return (
-    <div className="relative w-full h-full bg-[#dde6ef] dark:bg-[#1e2a3a] overflow-hidden"
-      style={{ transform: `scale(${zoom})`, transformOrigin: "center" }}>
-      {/* grid streets */}
-      <div className="absolute inset-0"
+    <div
+      className="relative w-full h-full bg-[#dde6ef] dark:bg-[#1e2a3a] overflow-hidden"
+      style={{ transform: `scale(${zoom})`, transformOrigin: "center" }}
+    >
+      <div
+        className="absolute inset-0"
         style={{
           backgroundImage:
             "linear-gradient(#ffffff55 1px, transparent 1px), linear-gradient(90deg, #ffffff55 1px, transparent 1px)",
           backgroundSize: "40px 40px",
-        }} />
-      {/* major roads */}
+        }}
+      />
       <div className="absolute left-0 right-0 top-1/2 h-2 bg-white/80 dark:bg-white/30" />
       <div className="absolute top-0 bottom-0 left-1/3 w-2 bg-white/80 dark:bg-white/30" />
-      {/* route line */}
-      <svg className="absolute inset-0 w-full h-full" viewBox="0 0 400 400" preserveAspectRatio="none">
-        <path d="M 80 300 Q 180 220 220 180 T 320 80"
-          stroke="oklch(0.72 0.19 50)" strokeWidth="4" fill="none" strokeDasharray="6 6" />
+
+      <svg
+        className="absolute inset-0 w-full h-full"
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+      >
+        <line
+          x1={w.x} y1={w.y} x2={c.x} y2={c.y}
+          stroke="oklch(0.72 0.19 50)"
+          strokeWidth="0.8"
+          strokeDasharray="2 2"
+          vectorEffect="non-scaling-stroke"
+        />
       </svg>
-      {/* worker pin */}
-      <div className="absolute" style={{ left: "20%", top: "75%" }}>
+
+      {typeof progress === "number" && (
+        <div className="absolute top-3 left-3 right-16 bg-card/90 backdrop-blur rounded-lg px-3 py-1.5 shadow">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+            Live · {Math.round(progress)}%
+          </p>
+          <div className="h-1 bg-border rounded-full overflow-hidden mt-1">
+            <div className="h-full bg-accent transition-all duration-700"
+              style={{ width: `${progress}%` }} />
+          </div>
+        </div>
+      )}
+
+      <div className="absolute transition-all duration-700 ease-linear"
+        style={{ left: `${w.x}%`, top: `${w.y}%` }}>
         <div className="relative -translate-x-1/2 -translate-y-full">
           <div className="h-9 w-9 rounded-full bg-primary border-4 border-white shadow-lg flex items-center justify-center">
             <Navigation className="h-4 w-4 text-primary-foreground" />
           </div>
-          <p className="text-[10px] font-bold text-center mt-1 text-primary">You</p>
+          <p className="text-[10px] font-bold text-center mt-1 text-primary whitespace-nowrap">
+            {workerLabel}
+          </p>
         </div>
       </div>
-      {/* client pin */}
-      <div className="absolute" style={{ left: "80%", top: "20%" }}>
+      <div className="absolute" style={{ left: `${c.x}%`, top: `${c.y}%` }}>
         <div className="relative -translate-x-1/2 -translate-y-full">
           <div className="h-9 w-9 rounded-full bg-accent border-4 border-white shadow-lg flex items-center justify-center">
             <MapPin className="h-4 w-4 text-accent-foreground" />
           </div>
-          <p className="text-[10px] font-bold text-center mt-1 text-accent">Client</p>
+          <p className="text-[10px] font-bold text-center mt-1 text-accent whitespace-nowrap">
+            {clientLabel}
+          </p>
         </div>
       </div>
     </div>
