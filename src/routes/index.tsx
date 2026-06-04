@@ -87,18 +87,26 @@ function App() {
           </div>
         ) : !session || !role ? (
           <LoginScreen />
-        ) : role === "client" ? (
-          <ClientDashboard
-            dark={dark}
-            onToggleDark={() => setDark((d) => !d)}
-            onExit={signOut}
-          />
         ) : (
-          <WorkerDashboard
-            dark={dark}
-            onToggleDark={() => setDark((d) => !d)}
+          <RoleGuard
+            role={role}
+            allow={role}
             onExit={signOut}
-          />
+          >
+            {role === "client" ? (
+              <ClientDashboard
+                dark={dark}
+                onToggleDark={() => setDark((d) => !d)}
+                onExit={signOut}
+              />
+            ) : (
+              <WorkerDashboard
+                dark={dark}
+                onToggleDark={() => setDark((d) => !d)}
+                onExit={signOut}
+              />
+            )}
+          </RoleGuard>
         )}
       </div>
     </div>
