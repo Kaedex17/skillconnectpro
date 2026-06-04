@@ -4,7 +4,7 @@ import {
   Wrench, Zap, Hammer, Plug, Settings, MapPin, Camera, Upload, Send,
   Home, History, User, Menu, LogOut, Sun, Moon, Plus, Minus, Navigation,
   Briefcase, Map as MapIcon, Bell, Facebook, Mail, ChevronRight, CheckCircle2,
-  Wallet, Phone,
+  Wallet, Phone, Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,8 @@ import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 import { jobStore, useJobs, type Job, type JobStatus } from "@/lib/jobStore";
+import { supabase } from "@/integrations/supabase/client";
+import type { Session } from "@supabase/supabase-js";
 
 export const Route = createFileRoute("/")({ component: App });
 
