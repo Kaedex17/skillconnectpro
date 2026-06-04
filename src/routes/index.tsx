@@ -87,22 +87,60 @@ function App() {
           </div>
         ) : !session || !role ? (
           <LoginScreen />
-        ) : role === "client" ? (
-          <ClientDashboard
-            dark={dark}
-            onToggleDark={() => setDark((d) => !d)}
-            onExit={signOut}
-          />
         ) : (
-          <WorkerDashboard
-            dark={dark}
-            onToggleDark={() => setDark((d) => !d)}
+          <RoleGuard
+            role={role}
+            allow={role}
             onExit={signOut}
-          />
+          >
+            {role === "client" ? (
+              <ClientDashboard
+                dark={dark}
+                onToggleDark={() => setDark((d) => !d)}
+                onExit={signOut}
+              />
+            ) : (
+              <WorkerDashboard
+                dark={dark}
+                onToggleDark={() => setDark((d) => !d)}
+                onExit={signOut}
+              />
+            )}
+          </RoleGuard>
         )}
       </div>
     </div>
   );
+}
+
+/* ─────────────── ROLE GUARD ─────────────── */
+
+function RoleGuard({
+  role,
+  allow,
+  onExit,
+  children,
+}: {
+  role: Role;
+  allow: Role;
+  onExit: () => void;
+  children: React.ReactNode;
+}) {
+  if (role !== allow) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center bg-background">
+        <div className="h-16 w-16 rounded-2xl bg-destructive/15 flex items-center justify-center mb-4">
+          <LogOut className="h-7 w-7 text-destructive" />
+        </div>
+        <h2 className="text-lg font-bold mb-1">Access denied</h2>
+        <p className="text-sm text-muted-foreground mb-6">
+          Your account ({role}) cannot access the {allow} dashboard.
+        </p>
+        <Button onClick={onExit} className="rounded-xl">Sign out</Button>
+      </div>
+    );
+  }
+  return <>{children}</>;
 }
 
 /* ─────────────── LOGIN ─────────────── */
