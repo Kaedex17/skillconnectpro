@@ -4,7 +4,7 @@ import {
   Wrench, Zap, Hammer, Plug, Settings, MapPin, Camera, Upload, Send,
   Home, History, User, Menu, LogOut, Sun, Moon, Plus, Minus, Navigation,
   Briefcase, Map as MapIcon, Bell, Facebook, Mail, ChevronRight, CheckCircle2,
-  Wallet, Phone,
+  Wallet, Phone, Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,41 +19,85 @@ import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 import { jobStore, useJobs, type Job, type JobStatus } from "@/lib/jobStore";
+import { supabase } from "@/integrations/supabase/client";
+import type { Session } from "@supabase/supabase-js";
 
 export const Route = createFileRoute("/")({ component: App });
 
-type Screen = "login" | "client" | "worker";
 type Role = "client" | "worker";
 
 function App() {
-  const [screen, setScreen] = useState<Screen>("login");
   const [dark, setDark] = useState(false);
+  const [session, setSession] = useState<Session | null>(null);
+  const [role, setRole] = useState<Role | null>(null);
+  const [booting, setBooting] = useState(true);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
   }, [dark]);
 
+  // Auth bootstrap: listener first, then initial session
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
+      setSession(s);
+      if (!s) setRole(null);
+    });
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setBooting(false);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Fetch role whenever session changes
+  useEffect(() => {
+    if (!session) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", session.user.id)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (cancelled) return;
+      if (error) {
+        toast.error("Failed to load profile");
+        return;
+      }
+      const r = (data?.role as Role | undefined) ?? "client";
+      setRole(r === "worker" ? "worker" : "client");
+    })();
+    return () => { cancelled = true; };
+  }, [session]);
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    toast.success("Signed out");
+  };
+
   return (
     <div className="min-h-screen w-full bg-background flex justify-center">
       <Toaster position="top-center" />
       <div className="w-full max-w-[440px] min-h-screen bg-background relative overflow-hidden">
-        {screen === "login" && (
-          <LoginScreen
-            onLogin={(role) => setScreen(role === "client" ? "client" : "worker")}
-          />
-        )}
-        {screen === "client" && (
+        {booting ? (
+          <div className="min-h-screen flex items-center justify-center">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        ) : !session || !role ? (
+          <LoginScreen />
+        ) : role === "client" ? (
           <ClientDashboard
             dark={dark}
             onToggleDark={() => setDark((d) => !d)}
-            onExit={() => setScreen("login")}
+            onExit={signOut}
           />
-        )}
-        {screen === "worker" && (
+        ) : (
           <WorkerDashboard
             dark={dark}
             onToggleDark={() => setDark((d) => !d)}
-            onExit={() => setScreen("login")}
+            onExit={signOut}
           />
         )}
       </div>
@@ -63,24 +107,54 @@ function App() {
 
 /* ─────────────── LOGIN ─────────────── */
 
-function LoginScreen({ onLogin }: { onLogin: (role: Role) => void }) {
-  const [userId, setUserId] = useState("");
+function LoginScreen() {
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
   const [role, setRole] = useState<Role>("client");
+  const [loading, setLoading] = useState(false);
 
-  const submit = () => {
-    if (!userId || !password) {
-      toast.error("Enter your credentials");
+  const submit = async () => {
+    if (!email || !password) {
+      toast.error("Enter email and password");
       return;
     }
-    toast.success(`Welcome back, ${userId}`);
-    setTimeout(() => onLogin(role), 400);
+    if (mode === "signup" && password.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
+    setLoading(true);
+    try {
+      if (mode === "signin") {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        toast.success("Welcome back!");
+      } else {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/`,
+            data: { full_name: fullName, phone, role },
+          },
+        });
+        if (error) throw error;
+        toast.success("Account created — you're signed in");
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Authentication failed";
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen flex flex-col px-6 pt-12 pb-8 bg-gradient-to-b from-primary/90 via-primary to-primary text-primary-foreground">
       {/* Logo */}
-      <div className="flex flex-col items-center mt-4 mb-10">
+      <div className="flex flex-col items-center mt-4 mb-8">
         <div className="h-20 w-20 rounded-2xl bg-accent flex items-center justify-center shadow-lg mb-4 rotate-3">
           <Wrench className="h-10 w-10 text-accent-foreground" strokeWidth={2.5} />
         </div>
@@ -93,69 +167,87 @@ function LoginScreen({ onLogin }: { onLogin: (role: Role) => void }) {
       </div>
 
       <Card className="bg-card text-card-foreground p-6 rounded-2xl shadow-2xl border-0 space-y-4">
-        <div className="space-y-1.5">
-          <h2 className="text-lg font-bold">Welcome back</h2>
-          <p className="text-xs text-muted-foreground">Sign in to continue</p>
+        <div className="grid grid-cols-2 gap-1 p-1 bg-secondary rounded-lg">
+          {(["signin", "signup"] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              className={cn(
+                "py-2 rounded-md text-xs font-semibold transition",
+                mode === m
+                  ? "bg-card text-foreground shadow"
+                  : "text-muted-foreground",
+              )}
+            >
+              {m === "signin" ? "Sign In" : "Sign Up"}
+            </button>
+          ))}
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="uid" className="text-xs font-semibold">User ID</Label>
-          <Input id="uid" placeholder="your_username" value={userId}
-            onChange={(e) => setUserId(e.target.value)} />
+          <h2 className="text-lg font-bold">
+            {mode === "signin" ? "Welcome back" : "Create your account"}
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            {mode === "signin" ? "Sign in to continue" : "Join Skill Link Pro"}
+          </p>
+        </div>
+
+        {mode === "signup" && (
+          <>
+            <div className="space-y-1.5">
+              <Label htmlFor="name" className="text-xs font-semibold">Full name</Label>
+              <Input id="name" placeholder="Juan Dela Cruz" value={fullName}
+                onChange={(e) => setFullName(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="phone" className="text-xs font-semibold">Phone</Label>
+              <Input id="phone" placeholder="+63..." value={phone}
+                onChange={(e) => setPhone(e.target.value)} />
+            </div>
+          </>
+        )}
+
+        <div className="space-y-1.5">
+          <Label htmlFor="email" className="text-xs font-semibold">Email</Label>
+          <Input id="email" type="email" placeholder="you@example.com" value={email}
+            onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
         </div>
 
         <div className="space-y-1.5">
           <Label htmlFor="pwd" className="text-xs font-semibold">Password</Label>
           <Input id="pwd" type="password" placeholder="••••••••"
-            value={password} onChange={(e) => setPassword(e.target.value)} />
-          <button className="text-[11px] text-accent font-medium block ml-auto">
-            Forgot password?
-          </button>
+            value={password} onChange={(e) => setPassword(e.target.value)}
+            autoComplete={mode === "signin" ? "current-password" : "new-password"} />
         </div>
 
-        <div className="space-y-1.5">
-          <Label className="text-xs font-semibold">Login as</Label>
-          <div className="grid grid-cols-2 gap-2">
-            {(["client", "worker"] as Role[]).map((r) => (
-              <button
-                key={r}
-                onClick={() => setRole(r)}
-                className={cn(
-                  "py-2 rounded-lg text-xs font-semibold border transition",
-                  role === r
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-secondary text-secondary-foreground border-border",
-                )}
-              >
-                {r === "client" ? "Client" : "Worker"}
-              </button>
-            ))}
+        {mode === "signup" && (
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold">I am a</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {(["client", "worker"] as Role[]).map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setRole(r)}
+                  className={cn(
+                    "py-2 rounded-lg text-xs font-semibold border transition",
+                    role === r
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-secondary text-secondary-foreground border-border",
+                  )}
+                >
+                  {r === "client" ? "Client" : "Worker"}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
-        <Button onClick={submit}
+        <Button onClick={submit} disabled={loading}
           className="w-full bg-accent hover:bg-accent/90 text-accent-foreground font-bold h-11 rounded-xl">
-          Login
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : (mode === "signin" ? "Sign In" : "Create Account")}
         </Button>
-
-        <div className="flex items-center gap-3 my-1">
-          <div className="h-px flex-1 bg-border" />
-          <span className="text-[10px] uppercase tracking-widest text-muted-foreground">or</span>
-          <div className="h-px flex-1 bg-border" />
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <Button variant="outline" className="h-10 rounded-xl">
-            <Facebook className="h-4 w-4 text-[#1877F2]" /> Facebook
-          </Button>
-          <Button variant="outline" className="h-10 rounded-xl">
-            <Mail className="h-4 w-4 text-[#EA4335]" /> Gmail
-          </Button>
-        </div>
-
-        <button className="w-full text-center text-sm font-semibold text-primary py-2">
-          Create Account
-        </button>
       </Card>
 
       <div className="mt-auto pt-8 text-center space-y-3">
