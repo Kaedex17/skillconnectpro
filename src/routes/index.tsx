@@ -321,7 +321,13 @@ function ClientDashboard({
   const [category, setCategory] = useState("electrician");
   const [images, setImages] = useState<string[]>([]);
   const [payment, setPayment] = useState<"cash" | "digital">("cash");
+  const [bookingMode, setBookingMode] = useState<"immediate" | "scheduled">("immediate");
+  const [scheduledFor, setScheduledFor] = useState<string>("");
+  const [laborCost, setLaborCost] = useState<number>(400);
+  const [materials, setMaterials] = useState<Material[]>([]);
   const [activeJobId, setActiveJobId] = useState<number | null>(null);
+  const [showRating, setShowRating] = useState(false);
+  const [showReceipt, setShowReceipt] = useState(false);
 
   const jobs = useJobs();
   const activeJob = useMemo(
@@ -329,6 +335,12 @@ function ClientDashboard({
     [jobs, activeJobId],
   );
   const status = activeJob?.status ?? null;
+
+  const materialsCost = useMemo(
+    () => materials.reduce((s, m) => s + m.qty * m.price, 0),
+    [materials],
+  );
+  const totalCost = laborCost + materialsCost;
 
   // Notify on status transitions
   const [lastStatus, setLastStatus] = useState<JobStatus | null>(null);
@@ -343,7 +355,8 @@ function ClientDashboard({
     } else if (activeJob.status === "Worker En Route") {
       toast(`${activeJob.workerName ?? "Worker"} is on the way`);
     } else if (activeJob.status === "Completed") {
-      toast.success("Job completed");
+      toast.success("Job completed — please rate your worker");
+      if (!activeJob.rating) setShowRating(true);
     }
   }, [activeJob, lastStatus]);
 
@@ -353,13 +366,28 @@ function ClientDashboard({
     { id: 3, title: "Door hinge repair", category: "Carpenter", status: "Completed", price: "₱300" },
   ]);
 
+  const addMaterial = () => {
+    setMaterials((m) => [...m, { name: "", qty: 1, price: 0 }]);
+  };
+  const updateMaterial = (i: number, patch: Partial<Material>) => {
+    setMaterials((m) => m.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
+  };
+  const removeMaterial = (i: number) => {
+    setMaterials((m) => m.filter((_, idx) => idx !== i));
+  };
+
   const submit = () => {
     if (!problem) { toast.error("Describe your issue"); return; }
+    if (bookingMode === "scheduled" && !scheduledFor) {
+      toast.error("Pick a date and time");
+      return;
+    }
     if (activeJob && !["Completed", "Rejected"].includes(activeJob.status)) {
       toast.error("You already have an active request");
       return;
     }
     const cat = CATEGORIES.find((c) => c.v === category)?.label ?? category;
+    const validMaterials = materials.filter((m) => m.name.trim() && m.qty > 0);
     const job = jobStore.create({
       client: "Juan D.",
       category: cat,
@@ -367,11 +395,15 @@ function ClientDashboard({
       notes,
       address,
       distance: `${(0.5 + Math.random() * 2).toFixed(1)} km`,
-      price: `₱${(300 + Math.floor(Math.random() * 500))}`,
+      laborCost,
+      materials: validMaterials,
+      scheduledFor: bookingMode === "scheduled" ? scheduledFor : undefined,
     });
     setActiveJobId(job.id);
     setLastStatus("Pending");
-    toast.success("Request sent! Finding a worker…");
+    toast.success(
+      bookingMode === "scheduled" ? "Appointment scheduled!" : "Request sent! Finding a worker…",
+    );
   };
 
   const addImage = () => {
