@@ -730,8 +730,6 @@ function ClientDashboard({
         />
       )}
 
-        </div>
-      )}
 
       {tab === "history" && (
         <div className="px-4 space-y-2">
