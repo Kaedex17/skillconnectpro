@@ -540,6 +540,72 @@ function ClientDashboard({
                 </button>
               </div>
             </div>
+
+            {/* Materials */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Required materials
+                </Label>
+                <button type="button" onClick={addMaterial}
+                  className="text-[11px] font-semibold text-accent flex items-center gap-1">
+                  <Plus className="h-3 w-3" /> Add
+                </button>
+              </div>
+              {materials.length === 0 && (
+                <p className="text-[10px] text-muted-foreground italic">
+                  e.g. wires, pipes, switches, spare parts
+                </p>
+              )}
+              {materials.map((m, i) => (
+                <div key={i} className="grid grid-cols-[1fr_50px_70px_28px] gap-1.5 items-center">
+                  <Input
+                    placeholder="Material" value={m.name}
+                    onChange={(e) => updateMaterial(i, { name: e.target.value })}
+                    className="h-8 text-xs" />
+                  <Input
+                    type="number" min={1} value={m.qty}
+                    onChange={(e) => updateMaterial(i, { qty: Number(e.target.value) || 0 })}
+                    className="h-8 text-xs" />
+                  <Input
+                    type="number" min={0} placeholder="₱" value={m.price || ""}
+                    onChange={(e) => updateMaterial(i, { price: Number(e.target.value) || 0 })}
+                    className="h-8 text-xs" />
+                  <button type="button" onClick={() => removeMaterial(i)}
+                    className="h-8 w-7 flex items-center justify-center text-destructive">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Labor cost */}
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Labor cost (₱)
+              </Label>
+              <Input type="number" min={0} value={laborCost}
+                onChange={(e) => setLaborCost(Number(e.target.value) || 0)} />
+            </div>
+
+            {/* Transparent breakdown */}
+            <div className="rounded-xl bg-secondary/50 p-3 space-y-1">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
+                Transparent pricing
+              </p>
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Labor</span>
+                <span className="font-semibold">₱{laborCost.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Materials</span>
+                <span className="font-semibold">₱{materialsCost.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-sm pt-1 border-t border-border">
+                <span className="font-bold">Total</span>
+                <span className="font-black text-accent">₱{totalCost.toLocaleString()}</span>
+              </div>
+            </div>
           </Card>
 
           {/* Payment */}
@@ -568,11 +634,17 @@ function ClientDashboard({
                 className="bg-accent hover:bg-accent/90 text-accent-foreground font-bold h-11 rounded-xl">
                 <Send className="h-4 w-4" /> Request
               </Button>
-              <Button variant="outline" className="h-11 rounded-xl font-bold">
-                <Wallet className="h-4 w-4" /> Pay Now
+              <Button
+                variant="outline"
+                disabled={!activeJob || activeJob.status !== "Completed" || activeJob.paid}
+                onClick={() => setShowReceipt(true)}
+                className="h-11 rounded-xl font-bold">
+                <Wallet className="h-4 w-4" />
+                {activeJob?.paid ? "Paid" : "Pay Now"}
               </Button>
             </div>
           </Card>
+
 
           {activeJob && ["Accepted", "Worker En Route", "In Progress"].includes(activeJob.status) && (
             <Card className="rounded-2xl border-0 overflow-hidden shadow-md p-0 h-[260px] relative">
