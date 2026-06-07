@@ -666,6 +666,22 @@ function ClientDashboard({
                 <p className="text-lg font-bold">{status}</p>
                 <CheckCircle2 className="h-5 w-5 text-accent" />
               </div>
+              {activeJob?.workerName && (
+                <div className="mt-2 flex items-center gap-2 text-xs">
+                  <span className="opacity-80">{activeJob.workerName}</span>
+                  {activeJob.workerVerified && (
+                    <Badge className="bg-accent text-accent-foreground hover:bg-accent gap-1 h-5 px-1.5 text-[10px]">
+                      <ShieldCheck className="h-3 w-3" /> Verified
+                    </Badge>
+                  )}
+                </div>
+              )}
+              {activeJob?.scheduledFor && (
+                <p className="text-[10px] opacity-70 mt-1">
+                  <Calendar className="h-3 w-3 inline mr-1" />
+                  Scheduled for {new Date(activeJob.scheduledFor).toLocaleString()}
+                </p>
+              )}
               <div className="mt-3 flex gap-1">
                 {["Pending", "Accepted", "Worker En Route", "In Progress", "Completed"].map((s, i) => {
                   const idx = ["Pending", "Accepted", "Worker En Route", "In Progress", "Completed"].indexOf(status);
@@ -675,8 +691,45 @@ function ClientDashboard({
                   );
                 })}
               </div>
+              {activeJob?.status === "Completed" && activeJob.rating && (
+                <div className="mt-3 flex items-center gap-1 text-xs">
+                  <span className="opacity-80">Your rating:</span>
+                  {[1,2,3,4,5].map((n) => (
+                    <Star key={n} className={cn("h-3.5 w-3.5",
+                      n <= activeJob.rating! ? "fill-accent text-accent" : "text-white/30")} />
+                  ))}
+                </div>
+              )}
             </Card>
           )}
+        </div>
+      )}
+
+      {activeJob && showRating && (
+        <RatingModal
+          workerName={activeJob.workerName ?? "Worker"}
+          onSubmit={(r) => {
+            jobStore.setRating(activeJob.id, r);
+            setShowRating(false);
+            toast.success("Thanks for your feedback!");
+          }}
+          onClose={() => setShowRating(false)}
+        />
+      )}
+
+      {activeJob && showReceipt && (
+        <ReceiptModal
+          job={activeJob}
+          paymentMethod={payment}
+          onPay={() => {
+            jobStore.setPaid(activeJob.id);
+            setShowReceipt(false);
+            toast.success("Payment successful — receipt sent");
+          }}
+          onClose={() => setShowReceipt(false)}
+        />
+      )}
+
         </div>
       )}
 
