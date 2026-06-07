@@ -10,6 +10,8 @@ export type JobStatus =
 
 export type GeoPoint = { x: number; y: number }; // 0-100 % on the map canvas
 
+export type Material = { name: string; qty: number; price: number };
+
 export type Job = {
   id: number;
   client: string;
@@ -18,13 +20,20 @@ export type Job = {
   notes?: string;
   address: string;
   distance: string;
-  price: string;
+  price: string; // total formatted
+  laborCost: number;
+  materialsCost: number;
+  materials: Material[];
+  scheduledFor?: string; // ISO datetime, undefined = immediate
   status: JobStatus;
   createdAt: number;
   workerName?: string;
+  workerVerified?: boolean;
   clientLoc: GeoPoint;
   workerLoc?: GeoPoint;
-  progress: number; // 0-100, worker → client en-route progress
+  progress: number;
+  rating?: number; // 1-5, set by client after completion
+  paid?: boolean;
 };
 
 type Listener = () => void;
@@ -34,8 +43,20 @@ let nextId = 1;
 const listeners = new Set<Listener>();
 
 const emit = () => listeners.forEach((l) => l());
-
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
+type CreateInput = {
+  client: string;
+  category: string;
+  title: string;
+  notes?: string;
+  address: string;
+  distance: string;
+  laborCost: number;
+  materials: Material[];
+  scheduledFor?: string;
+  clientLoc?: GeoPoint;
+};
 
 export const jobStore = {
   getAll(): Job[] {
@@ -45,13 +66,25 @@ export const jobStore = {
     listeners.add(l);
     return () => listeners.delete(l);
   },
-  create(
-    input: Omit<Job, "id" | "status" | "createdAt" | "progress" | "clientLoc"> &
-      Partial<Pick<Job, "clientLoc">>,
-  ): Job {
+  create(input: CreateInput): Job {
+    const materialsCost = input.materials.reduce(
+      (s, m) => s + m.qty * m.price,
+      0,
+    );
+    const total = input.laborCost + materialsCost;
     const job: Job = {
-      ...input,
       id: nextId++,
+      client: input.client,
+      category: input.category,
+      title: input.title,
+      notes: input.notes,
+      address: input.address,
+      distance: input.distance,
+      laborCost: input.laborCost,
+      materialsCost,
+      materials: input.materials,
+      scheduledFor: input.scheduledFor,
+      price: `₱${total.toLocaleString()}`,
       status: "Pending",
       createdAt: Date.now(),
       progress: 0,
@@ -72,8 +105,8 @@ export const jobStore = {
         ...j,
         status,
         workerName: workerName ?? j.workerName,
+        workerVerified: workerName ? true : j.workerVerified,
       };
-      // Seed worker location when accepted
       if (status === "Accepted" && !next.workerLoc) {
         next.workerLoc = {
           x: 10 + Math.random() * 20,
@@ -95,14 +128,20 @@ export const jobStore = {
     );
     emit();
   },
+  setRating(id: number, rating: number) {
+    jobs = jobs.map((j) => (j.id === id ? { ...j, rating } : j));
+    emit();
+  },
+  setPaid(id: number) {
+    jobs = jobs.map((j) => (j.id === id ? { ...j, paid: true } : j));
+    emit();
+  },
   remove(id: number) {
     jobs = jobs.filter((j) => j.id !== id);
     emit();
   },
 };
 
-// Simulated real-time GPS tick — advances any "Worker En Route" job
-// toward the client. In production this would be Firestore onSnapshot.
 let tickStarted = false;
 function startTick() {
   if (tickStarted || typeof window === "undefined") return;
@@ -112,7 +151,6 @@ function startTick() {
     jobs = jobs.map((j) => {
       if (j.status !== "Worker En Route" || !j.workerLoc) return j;
       const nextProgress = Math.min(100, j.progress + 4);
-      const t = nextProgress / 100;
       const loc = {
         x: lerp(j.workerLoc.x, j.clientLoc.x, 0.18),
         y: lerp(j.workerLoc.y, j.clientLoc.y, 0.18),

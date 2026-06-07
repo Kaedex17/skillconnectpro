@@ -4,7 +4,7 @@ import {
   Wrench, Zap, Hammer, Plug, Settings, MapPin, Camera, Upload, Send,
   Home, History, User, Menu, LogOut, Sun, Moon, Plus, Minus, Navigation,
   Briefcase, Map as MapIcon, Bell, Facebook, Mail, ChevronRight, CheckCircle2,
-  Wallet, Phone, Loader2,
+  Wallet, Phone, Loader2, Calendar, Star, Receipt, ShieldCheck, Trash2, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
-import { jobStore, useJobs, type Job, type JobStatus } from "@/lib/jobStore";
+import { jobStore, useJobs, type Job, type JobStatus, type Material } from "@/lib/jobStore";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
 
@@ -321,7 +321,13 @@ function ClientDashboard({
   const [category, setCategory] = useState("electrician");
   const [images, setImages] = useState<string[]>([]);
   const [payment, setPayment] = useState<"cash" | "digital">("cash");
+  const [bookingMode, setBookingMode] = useState<"immediate" | "scheduled">("immediate");
+  const [scheduledFor, setScheduledFor] = useState<string>("");
+  const [laborCost, setLaborCost] = useState<number>(400);
+  const [materials, setMaterials] = useState<Material[]>([]);
   const [activeJobId, setActiveJobId] = useState<number | null>(null);
+  const [showRating, setShowRating] = useState(false);
+  const [showReceipt, setShowReceipt] = useState(false);
 
   const jobs = useJobs();
   const activeJob = useMemo(
@@ -329,6 +335,12 @@ function ClientDashboard({
     [jobs, activeJobId],
   );
   const status = activeJob?.status ?? null;
+
+  const materialsCost = useMemo(
+    () => materials.reduce((s, m) => s + m.qty * m.price, 0),
+    [materials],
+  );
+  const totalCost = laborCost + materialsCost;
 
   // Notify on status transitions
   const [lastStatus, setLastStatus] = useState<JobStatus | null>(null);
@@ -343,7 +355,8 @@ function ClientDashboard({
     } else if (activeJob.status === "Worker En Route") {
       toast(`${activeJob.workerName ?? "Worker"} is on the way`);
     } else if (activeJob.status === "Completed") {
-      toast.success("Job completed");
+      toast.success("Job completed — please rate your worker");
+      if (!activeJob.rating) setShowRating(true);
     }
   }, [activeJob, lastStatus]);
 
@@ -353,13 +366,28 @@ function ClientDashboard({
     { id: 3, title: "Door hinge repair", category: "Carpenter", status: "Completed", price: "₱300" },
   ]);
 
+  const addMaterial = () => {
+    setMaterials((m) => [...m, { name: "", qty: 1, price: 0 }]);
+  };
+  const updateMaterial = (i: number, patch: Partial<Material>) => {
+    setMaterials((m) => m.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
+  };
+  const removeMaterial = (i: number) => {
+    setMaterials((m) => m.filter((_, idx) => idx !== i));
+  };
+
   const submit = () => {
     if (!problem) { toast.error("Describe your issue"); return; }
+    if (bookingMode === "scheduled" && !scheduledFor) {
+      toast.error("Pick a date and time");
+      return;
+    }
     if (activeJob && !["Completed", "Rejected"].includes(activeJob.status)) {
       toast.error("You already have an active request");
       return;
     }
     const cat = CATEGORIES.find((c) => c.v === category)?.label ?? category;
+    const validMaterials = materials.filter((m) => m.name.trim() && m.qty > 0);
     const job = jobStore.create({
       client: "Juan D.",
       category: cat,
@@ -367,11 +395,15 @@ function ClientDashboard({
       notes,
       address,
       distance: `${(0.5 + Math.random() * 2).toFixed(1)} km`,
-      price: `₱${(300 + Math.floor(Math.random() * 500))}`,
+      laborCost,
+      materials: validMaterials,
+      scheduledFor: bookingMode === "scheduled" ? scheduledFor : undefined,
     });
     setActiveJobId(job.id);
     setLastStatus("Pending");
-    toast.success("Request sent! Finding a worker…");
+    toast.success(
+      bookingMode === "scheduled" ? "Appointment scheduled!" : "Request sent! Finding a worker…",
+    );
   };
 
   const addImage = () => {
@@ -413,6 +445,40 @@ function ClientDashboard({
           {/* Service request */}
           <Card className="p-4 rounded-2xl border-0 shadow-sm space-y-3">
             <h3 className="text-sm font-bold">Service Request</h3>
+
+            {/* Booking mode */}
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Booking type
+              </Label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { v: "immediate", label: "Immediate" },
+                  { v: "scheduled", label: "Scheduled" },
+                ].map((o) => (
+                  <button key={o.v} type="button"
+                    onClick={() => setBookingMode(o.v as "immediate" | "scheduled")}
+                    className={cn(
+                      "py-2 rounded-lg text-xs font-semibold border transition flex items-center justify-center gap-1.5",
+                      bookingMode === o.v
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-secondary text-secondary-foreground border-border",
+                    )}>
+                    {o.v === "scheduled" && <Calendar className="h-3.5 w-3.5" />}
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+              {bookingMode === "scheduled" && (
+                <Input
+                  type="datetime-local"
+                  value={scheduledFor}
+                  onChange={(e) => setScheduledFor(e.target.value)}
+                  className="mt-2 h-9"
+                />
+              )}
+            </div>
+
 
             <div className="space-y-1.5">
               <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -474,6 +540,72 @@ function ClientDashboard({
                 </button>
               </div>
             </div>
+
+            {/* Materials */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Required materials
+                </Label>
+                <button type="button" onClick={addMaterial}
+                  className="text-[11px] font-semibold text-accent flex items-center gap-1">
+                  <Plus className="h-3 w-3" /> Add
+                </button>
+              </div>
+              {materials.length === 0 && (
+                <p className="text-[10px] text-muted-foreground italic">
+                  e.g. wires, pipes, switches, spare parts
+                </p>
+              )}
+              {materials.map((m, i) => (
+                <div key={i} className="grid grid-cols-[1fr_50px_70px_28px] gap-1.5 items-center">
+                  <Input
+                    placeholder="Material" value={m.name}
+                    onChange={(e) => updateMaterial(i, { name: e.target.value })}
+                    className="h-8 text-xs" />
+                  <Input
+                    type="number" min={1} value={m.qty}
+                    onChange={(e) => updateMaterial(i, { qty: Number(e.target.value) || 0 })}
+                    className="h-8 text-xs" />
+                  <Input
+                    type="number" min={0} placeholder="₱" value={m.price || ""}
+                    onChange={(e) => updateMaterial(i, { price: Number(e.target.value) || 0 })}
+                    className="h-8 text-xs" />
+                  <button type="button" onClick={() => removeMaterial(i)}
+                    className="h-8 w-7 flex items-center justify-center text-destructive">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Labor cost */}
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Labor cost (₱)
+              </Label>
+              <Input type="number" min={0} value={laborCost}
+                onChange={(e) => setLaborCost(Number(e.target.value) || 0)} />
+            </div>
+
+            {/* Transparent breakdown */}
+            <div className="rounded-xl bg-secondary/50 p-3 space-y-1">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
+                Transparent pricing
+              </p>
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Labor</span>
+                <span className="font-semibold">₱{laborCost.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Materials</span>
+                <span className="font-semibold">₱{materialsCost.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-sm pt-1 border-t border-border">
+                <span className="font-bold">Total</span>
+                <span className="font-black text-accent">₱{totalCost.toLocaleString()}</span>
+              </div>
+            </div>
           </Card>
 
           {/* Payment */}
@@ -502,11 +634,17 @@ function ClientDashboard({
                 className="bg-accent hover:bg-accent/90 text-accent-foreground font-bold h-11 rounded-xl">
                 <Send className="h-4 w-4" /> Request
               </Button>
-              <Button variant="outline" className="h-11 rounded-xl font-bold">
-                <Wallet className="h-4 w-4" /> Pay Now
+              <Button
+                variant="outline"
+                disabled={!activeJob || activeJob.status !== "Completed" || activeJob.paid}
+                onClick={() => setShowReceipt(true)}
+                className="h-11 rounded-xl font-bold">
+                <Wallet className="h-4 w-4" />
+                {activeJob?.paid ? "Paid" : "Pay Now"}
               </Button>
             </div>
           </Card>
+
 
           {activeJob && ["Accepted", "Worker En Route", "In Progress"].includes(activeJob.status) && (
             <Card className="rounded-2xl border-0 overflow-hidden shadow-md p-0 h-[260px] relative">
@@ -528,6 +666,22 @@ function ClientDashboard({
                 <p className="text-lg font-bold">{status}</p>
                 <CheckCircle2 className="h-5 w-5 text-accent" />
               </div>
+              {activeJob?.workerName && (
+                <div className="mt-2 flex items-center gap-2 text-xs">
+                  <span className="opacity-80">{activeJob.workerName}</span>
+                  {activeJob.workerVerified && (
+                    <Badge className="bg-accent text-accent-foreground hover:bg-accent gap-1 h-5 px-1.5 text-[10px]">
+                      <ShieldCheck className="h-3 w-3" /> Verified
+                    </Badge>
+                  )}
+                </div>
+              )}
+              {activeJob?.scheduledFor && (
+                <p className="text-[10px] opacity-70 mt-1">
+                  <Calendar className="h-3 w-3 inline mr-1" />
+                  Scheduled for {new Date(activeJob.scheduledFor).toLocaleString()}
+                </p>
+              )}
               <div className="mt-3 flex gap-1">
                 {["Pending", "Accepted", "Worker En Route", "In Progress", "Completed"].map((s, i) => {
                   const idx = ["Pending", "Accepted", "Worker En Route", "In Progress", "Completed"].indexOf(status);
@@ -537,10 +691,45 @@ function ClientDashboard({
                   );
                 })}
               </div>
+              {activeJob?.status === "Completed" && activeJob.rating && (
+                <div className="mt-3 flex items-center gap-1 text-xs">
+                  <span className="opacity-80">Your rating:</span>
+                  {[1,2,3,4,5].map((n) => (
+                    <Star key={n} className={cn("h-3.5 w-3.5",
+                      n <= activeJob.rating! ? "fill-accent text-accent" : "text-white/30")} />
+                  ))}
+                </div>
+              )}
             </Card>
           )}
         </div>
       )}
+
+      {activeJob && showRating && (
+        <RatingModal
+          workerName={activeJob.workerName ?? "Worker"}
+          onSubmit={(r) => {
+            jobStore.setRating(activeJob.id, r);
+            setShowRating(false);
+            toast.success("Thanks for your feedback!");
+          }}
+          onClose={() => setShowRating(false)}
+        />
+      )}
+
+      {activeJob && showReceipt && (
+        <ReceiptModal
+          job={activeJob}
+          paymentMethod={payment}
+          onPay={() => {
+            jobStore.setPaid(activeJob.id);
+            setShowReceipt(false);
+            toast.success("Payment successful — receipt sent");
+          }}
+          onClose={() => setShowReceipt(false)}
+        />
+      )}
+
 
       {tab === "history" && (
         <div className="px-4 space-y-2">
@@ -628,7 +817,12 @@ function WorkerDashboard({
       <div className="px-4 pt-10 pb-4 bg-primary text-primary-foreground">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[10px] uppercase tracking-widest opacity-70">Wallet</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-[10px] uppercase tracking-widest opacity-70">Wallet</p>
+              <Badge className="bg-accent text-accent-foreground hover:bg-accent gap-1 h-4 px-1.5 text-[9px]">
+                <ShieldCheck className="h-2.5 w-2.5" /> Verified
+              </Badge>
+            </div>
             <p className="text-2xl font-black">₱{earnings.toLocaleString()}.00</p>
           </div>
           <div className="flex items-center gap-2">
@@ -777,6 +971,17 @@ function WorkerDashboard({
                     <p className="text-[10px] text-muted-foreground mt-0.5">
                       {r.category} · {r.distance}
                     </p>
+                    {r.scheduledFor && (
+                      <p className="text-[10px] text-accent mt-0.5 flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        {new Date(r.scheduledFor).toLocaleString()}
+                      </p>
+                    )}
+                    {r.materials.length > 0 && (
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        Materials: {r.materials.map((m) => m.name).filter(Boolean).join(", ")}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <p className="text-sm font-bold text-accent">{r.price}</p>
@@ -983,3 +1188,149 @@ function MapMock({
     </div>
   );
 }
+
+/* ─────────────── RATING MODAL ─────────────── */
+
+function RatingModal({
+  workerName,
+  onSubmit,
+  onClose,
+}: {
+  workerName: string;
+  onSubmit: (rating: number) => void;
+  onClose: () => void;
+}) {
+  const [rating, setRating] = useState(5);
+  const [hover, setHover] = useState(0);
+  return (
+    <div className="fixed inset-0 z-[100] bg-black/60 flex items-end sm:items-center justify-center p-4">
+      <Card className="w-full max-w-[400px] p-6 rounded-3xl border-0 shadow-2xl relative">
+        <button onClick={onClose}
+          className="absolute top-3 right-3 h-8 w-8 rounded-full bg-secondary flex items-center justify-center">
+          <X className="h-4 w-4" />
+        </button>
+        <div className="text-center mb-4">
+          <div className="h-16 w-16 rounded-full bg-accent/15 mx-auto flex items-center justify-center mb-3">
+            <Star className="h-8 w-8 text-accent fill-accent" />
+          </div>
+          <h3 className="text-lg font-bold">Rate your worker</h3>
+          <p className="text-sm text-muted-foreground">How was your service from {workerName}?</p>
+        </div>
+        <div className="flex justify-center gap-2 mb-5">
+          {[1, 2, 3, 4, 5].map((n) => (
+            <button key={n}
+              onMouseEnter={() => setHover(n)}
+              onMouseLeave={() => setHover(0)}
+              onClick={() => setRating(n)}>
+              <Star className={cn("h-9 w-9 transition",
+                n <= (hover || rating) ? "fill-accent text-accent" : "text-muted-foreground")} />
+            </button>
+          ))}
+        </div>
+        <Button onClick={() => onSubmit(rating)}
+          className="w-full h-11 rounded-xl font-bold bg-accent hover:bg-accent/90 text-accent-foreground">
+          Submit rating
+        </Button>
+      </Card>
+    </div>
+  );
+}
+
+/* ─────────────── DIGITAL RECEIPT MODAL ─────────────── */
+
+function ReceiptModal({
+  job,
+  paymentMethod,
+  onPay,
+  onClose,
+}: {
+  job: Job;
+  paymentMethod: "cash" | "digital";
+  onPay: () => void;
+  onClose: () => void;
+}) {
+  const total = job.laborCost + job.materialsCost;
+  const receiptNo = `SLP-${job.id.toString().padStart(6, "0")}`;
+  return (
+    <div className="fixed inset-0 z-[100] bg-black/60 flex items-end sm:items-center justify-center p-4">
+      <Card className="w-full max-w-[400px] p-6 rounded-3xl border-0 shadow-2xl relative">
+        <button onClick={onClose}
+          className="absolute top-3 right-3 h-8 w-8 rounded-full bg-secondary flex items-center justify-center">
+          <X className="h-4 w-4" />
+        </button>
+        <div className="text-center mb-4">
+          <div className="h-14 w-14 rounded-full bg-accent/15 mx-auto flex items-center justify-center mb-2">
+            <Receipt className="h-7 w-7 text-accent" />
+          </div>
+          <h3 className="text-lg font-bold">
+            {job.paid ? "Digital Receipt" : "Confirm Payment"}
+          </h3>
+          <p className="text-[11px] text-muted-foreground">Receipt # {receiptNo}</p>
+        </div>
+
+        <div className="rounded-xl border border-border p-3 space-y-2 mb-4">
+          <div className="flex justify-between text-xs">
+            <span className="text-muted-foreground">Service</span>
+            <span className="font-semibold text-right max-w-[60%] truncate">{job.title}</span>
+          </div>
+          <div className="flex justify-between text-xs">
+            <span className="text-muted-foreground">Worker</span>
+            <span className="font-semibold flex items-center gap-1">
+              {job.workerName ?? "—"}
+              {job.workerVerified && <ShieldCheck className="h-3 w-3 text-accent" />}
+            </span>
+          </div>
+          <div className="flex justify-between text-xs">
+            <span className="text-muted-foreground">Category</span>
+            <span className="font-semibold">{job.category}</span>
+          </div>
+          <div className="flex justify-between text-xs">
+            <span className="text-muted-foreground">Method</span>
+            <span className="font-semibold capitalize">{paymentMethod}</span>
+          </div>
+
+          {job.materials.length > 0 && (
+            <div className="pt-2 border-t border-border">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">
+                Materials
+              </p>
+              {job.materials.map((m, i) => (
+                <div key={i} className="flex justify-between text-[11px]">
+                  <span>{m.name} × {m.qty}</span>
+                  <span>₱{(m.qty * m.price).toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="pt-2 border-t border-border space-y-1">
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">Labor</span>
+              <span>₱{job.laborCost.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">Materials</span>
+              <span>₱{job.materialsCost.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between text-base pt-1 border-t border-border">
+              <span className="font-bold">Total</span>
+              <span className="font-black text-accent">₱{total.toLocaleString()}</span>
+            </div>
+          </div>
+        </div>
+
+        {job.paid ? (
+          <div className="flex items-center justify-center gap-2 text-accent font-bold py-3">
+            <CheckCircle2 className="h-5 w-5" /> Paid
+          </div>
+        ) : (
+          <Button onClick={onPay}
+            className="w-full h-11 rounded-xl font-bold bg-accent hover:bg-accent/90 text-accent-foreground">
+            <Wallet className="h-4 w-4" /> Pay ₱{total.toLocaleString()}
+          </Button>
+        )}
+      </Card>
+    </div>
+  );
+}
+
