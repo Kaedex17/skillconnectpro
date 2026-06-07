@@ -1172,3 +1172,149 @@ function MapMock({
     </div>
   );
 }
+
+/* ─────────────── RATING MODAL ─────────────── */
+
+function RatingModal({
+  workerName,
+  onSubmit,
+  onClose,
+}: {
+  workerName: string;
+  onSubmit: (rating: number) => void;
+  onClose: () => void;
+}) {
+  const [rating, setRating] = useState(5);
+  const [hover, setHover] = useState(0);
+  return (
+    <div className="fixed inset-0 z-[100] bg-black/60 flex items-end sm:items-center justify-center p-4">
+      <Card className="w-full max-w-[400px] p-6 rounded-3xl border-0 shadow-2xl relative">
+        <button onClick={onClose}
+          className="absolute top-3 right-3 h-8 w-8 rounded-full bg-secondary flex items-center justify-center">
+          <X className="h-4 w-4" />
+        </button>
+        <div className="text-center mb-4">
+          <div className="h-16 w-16 rounded-full bg-accent/15 mx-auto flex items-center justify-center mb-3">
+            <Star className="h-8 w-8 text-accent fill-accent" />
+          </div>
+          <h3 className="text-lg font-bold">Rate your worker</h3>
+          <p className="text-sm text-muted-foreground">How was your service from {workerName}?</p>
+        </div>
+        <div className="flex justify-center gap-2 mb-5">
+          {[1, 2, 3, 4, 5].map((n) => (
+            <button key={n}
+              onMouseEnter={() => setHover(n)}
+              onMouseLeave={() => setHover(0)}
+              onClick={() => setRating(n)}>
+              <Star className={cn("h-9 w-9 transition",
+                n <= (hover || rating) ? "fill-accent text-accent" : "text-muted-foreground")} />
+            </button>
+          ))}
+        </div>
+        <Button onClick={() => onSubmit(rating)}
+          className="w-full h-11 rounded-xl font-bold bg-accent hover:bg-accent/90 text-accent-foreground">
+          Submit rating
+        </Button>
+      </Card>
+    </div>
+  );
+}
+
+/* ─────────────── DIGITAL RECEIPT MODAL ─────────────── */
+
+function ReceiptModal({
+  job,
+  paymentMethod,
+  onPay,
+  onClose,
+}: {
+  job: Job;
+  paymentMethod: "cash" | "digital";
+  onPay: () => void;
+  onClose: () => void;
+}) {
+  const total = job.laborCost + job.materialsCost;
+  const receiptNo = `SLP-${job.id.toString().padStart(6, "0")}`;
+  return (
+    <div className="fixed inset-0 z-[100] bg-black/60 flex items-end sm:items-center justify-center p-4">
+      <Card className="w-full max-w-[400px] p-6 rounded-3xl border-0 shadow-2xl relative">
+        <button onClick={onClose}
+          className="absolute top-3 right-3 h-8 w-8 rounded-full bg-secondary flex items-center justify-center">
+          <X className="h-4 w-4" />
+        </button>
+        <div className="text-center mb-4">
+          <div className="h-14 w-14 rounded-full bg-accent/15 mx-auto flex items-center justify-center mb-2">
+            <Receipt className="h-7 w-7 text-accent" />
+          </div>
+          <h3 className="text-lg font-bold">
+            {job.paid ? "Digital Receipt" : "Confirm Payment"}
+          </h3>
+          <p className="text-[11px] text-muted-foreground">Receipt # {receiptNo}</p>
+        </div>
+
+        <div className="rounded-xl border border-border p-3 space-y-2 mb-4">
+          <div className="flex justify-between text-xs">
+            <span className="text-muted-foreground">Service</span>
+            <span className="font-semibold text-right max-w-[60%] truncate">{job.title}</span>
+          </div>
+          <div className="flex justify-between text-xs">
+            <span className="text-muted-foreground">Worker</span>
+            <span className="font-semibold flex items-center gap-1">
+              {job.workerName ?? "—"}
+              {job.workerVerified && <ShieldCheck className="h-3 w-3 text-accent" />}
+            </span>
+          </div>
+          <div className="flex justify-between text-xs">
+            <span className="text-muted-foreground">Category</span>
+            <span className="font-semibold">{job.category}</span>
+          </div>
+          <div className="flex justify-between text-xs">
+            <span className="text-muted-foreground">Method</span>
+            <span className="font-semibold capitalize">{paymentMethod}</span>
+          </div>
+
+          {job.materials.length > 0 && (
+            <div className="pt-2 border-t border-border">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">
+                Materials
+              </p>
+              {job.materials.map((m, i) => (
+                <div key={i} className="flex justify-between text-[11px]">
+                  <span>{m.name} × {m.qty}</span>
+                  <span>₱{(m.qty * m.price).toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="pt-2 border-t border-border space-y-1">
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">Labor</span>
+              <span>₱{job.laborCost.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">Materials</span>
+              <span>₱{job.materialsCost.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between text-base pt-1 border-t border-border">
+              <span className="font-bold">Total</span>
+              <span className="font-black text-accent">₱{total.toLocaleString()}</span>
+            </div>
+          </div>
+        </div>
+
+        {job.paid ? (
+          <div className="flex items-center justify-center gap-2 text-accent font-bold py-3">
+            <CheckCircle2 className="h-5 w-5" /> Paid
+          </div>
+        ) : (
+          <Button onClick={onPay}
+            className="w-full h-11 rounded-xl font-bold bg-accent hover:bg-accent/90 text-accent-foreground">
+            <Wallet className="h-4 w-4" /> Pay ₱{total.toLocaleString()}
+          </Button>
+        )}
+      </Card>
+    </div>
+  );
+}
+
