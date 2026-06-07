@@ -4,7 +4,7 @@ import {
   Wrench, Zap, Hammer, Plug, Settings, MapPin, Camera, Upload, Send,
   Home, History, User, Menu, LogOut, Sun, Moon, Plus, Minus, Navigation,
   Briefcase, Map as MapIcon, Bell, Facebook, Mail, ChevronRight, CheckCircle2,
-  Wallet, Phone, Loader2,
+  Wallet, Phone, Loader2, Calendar, Star, Receipt, ShieldCheck, Trash2, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
