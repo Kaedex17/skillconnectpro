@@ -966,6 +966,17 @@ function WorkerDashboard({
                     <p className="text-[10px] text-muted-foreground mt-0.5">
                       {r.category} · {r.distance}
                     </p>
+                    {r.scheduledFor && (
+                      <p className="text-[10px] text-accent mt-0.5 flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        {new Date(r.scheduledFor).toLocaleString()}
+                      </p>
+                    )}
+                    {r.materials.length > 0 && (
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        Materials: {r.materials.map((m) => m.name).filter(Boolean).join(", ")}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <p className="text-sm font-bold text-accent">{r.price}</p>
