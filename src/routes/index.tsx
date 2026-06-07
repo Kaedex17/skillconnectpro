@@ -446,6 +446,40 @@ function ClientDashboard({
           <Card className="p-4 rounded-2xl border-0 shadow-sm space-y-3">
             <h3 className="text-sm font-bold">Service Request</h3>
 
+            {/* Booking mode */}
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Booking type
+              </Label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { v: "immediate", label: "Immediate" },
+                  { v: "scheduled", label: "Scheduled" },
+                ].map((o) => (
+                  <button key={o.v} type="button"
+                    onClick={() => setBookingMode(o.v as "immediate" | "scheduled")}
+                    className={cn(
+                      "py-2 rounded-lg text-xs font-semibold border transition flex items-center justify-center gap-1.5",
+                      bookingMode === o.v
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-secondary text-secondary-foreground border-border",
+                    )}>
+                    {o.v === "scheduled" && <Calendar className="h-3.5 w-3.5" />}
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+              {bookingMode === "scheduled" && (
+                <Input
+                  type="datetime-local"
+                  value={scheduledFor}
+                  onChange={(e) => setScheduledFor(e.target.value)}
+                  className="mt-2 h-9"
+                />
+              )}
+            </div>
+
+
             <div className="space-y-1.5">
               <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 Describe your issue
