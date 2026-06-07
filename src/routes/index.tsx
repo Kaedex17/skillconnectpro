@@ -817,7 +817,12 @@ function WorkerDashboard({
       <div className="px-4 pt-10 pb-4 bg-primary text-primary-foreground">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[10px] uppercase tracking-widest opacity-70">Wallet</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-[10px] uppercase tracking-widest opacity-70">Wallet</p>
+              <Badge className="bg-accent text-accent-foreground hover:bg-accent gap-1 h-4 px-1.5 text-[9px]">
+                <ShieldCheck className="h-2.5 w-2.5" /> Verified
+              </Badge>
+            </div>
             <p className="text-2xl font-black">₱{earnings.toLocaleString()}.00</p>
           </div>
           <div className="flex items-center gap-2">
