@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 import { jobStore, useJobs, type Job, type JobStatus, type Material } from "@/lib/jobStore";
+import { LeafletMap, getCurrentPosition } from "@/components/LeafletMap";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
 
@@ -376,7 +377,7 @@ function ClientDashboard({
     setMaterials((m) => m.filter((_, idx) => idx !== i));
   };
 
-  const submit = () => {
+  const submit = async () => {
     if (!problem) { toast.error("Describe your issue"); return; }
     if (bookingMode === "scheduled" && !scheduledFor) {
       toast.error("Pick a date and time");
@@ -388,6 +389,11 @@ function ClientDashboard({
     }
     const cat = CATEGORIES.find((c) => c.v === category)?.label ?? category;
     const validMaterials = materials.filter((m) => m.name.trim() && m.qty > 0);
+    toast.message("Getting your GPS location…");
+    const clientLoc = await getCurrentPosition();
+    if (!clientLoc) {
+      toast.warning("Couldn't access GPS — using approximate location");
+    }
     const job = jobStore.create({
       client: "Juan D.",
       category: cat,
@@ -398,6 +404,7 @@ function ClientDashboard({
       laborCost,
       materials: validMaterials,
       scheduledFor: bookingMode === "scheduled" ? scheduledFor : undefined,
+      clientLoc: clientLoc ?? undefined,
     });
     setActiveJobId(job.id);
     setLastStatus("Pending");
@@ -648,10 +655,9 @@ function ClientDashboard({
 
           {activeJob && ["Accepted", "Worker En Route", "In Progress"].includes(activeJob.status) && (
             <Card className="rounded-2xl border-0 overflow-hidden shadow-md p-0 h-[260px] relative">
-              <MapMock
-                zoom={1}
-                workerLoc={activeJob.workerLoc}
-                clientLoc={activeJob.clientLoc}
+              <LeafletMap
+                worker={activeJob.workerLoc}
+                client={activeJob.clientLoc}
                 progress={activeJob.progress}
                 workerLabel={activeJob.workerName ?? "Worker"}
                 clientLabel="You"
@@ -845,10 +851,9 @@ function WorkerDashboard({
               const live = myActiveJobs[0];
               return (
                 <>
-                  <MapMock
-                    zoom={zoom}
-                    workerLoc={live?.workerLoc}
-                    clientLoc={live?.clientLoc}
+                  <LeafletMap
+                    worker={live?.workerLoc}
+                    client={live?.clientLoc}
                     progress={live?.progress}
                     workerLabel={workerName}
                     clientLabel={live?.client ?? "Client"}
