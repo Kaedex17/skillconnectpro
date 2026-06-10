@@ -33,8 +33,8 @@ export function LeafletMap({
     if (typeof window === "undefined") return;
     let cancelled = false;
     (async () => {
-      const L = (await import("leaflet")).default ?? (await import("leaflet"));
-      // @ts-expect-error css side-effect import
+      const leafletMod: any = await import("leaflet");
+      const L = leafletMod.default ?? leafletMod;
       await import("leaflet/dist/leaflet.css");
       if (cancelled || !containerRef.current || stateRef.current) return;
       const center = client ?? worker ?? { lat: 14.5995, lng: 120.9842 };
