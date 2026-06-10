@@ -8,7 +8,7 @@ export type JobStatus =
   | "In Progress"
   | "Completed";
 
-export type GeoPoint = { x: number; y: number }; // 0-100 % on the map canvas
+export type GeoPoint = { lat: number; lng: number };
 
 export type Material = { name: string; qty: number; price: number };
 
@@ -20,11 +20,11 @@ export type Job = {
   notes?: string;
   address: string;
   distance: string;
-  price: string; // total formatted
+  price: string;
   laborCost: number;
   materialsCost: number;
   materials: Material[];
-  scheduledFor?: string; // ISO datetime, undefined = immediate
+  scheduledFor?: string;
   status: JobStatus;
   createdAt: number;
   workerName?: string;
@@ -32,7 +32,7 @@ export type Job = {
   clientLoc: GeoPoint;
   workerLoc?: GeoPoint;
   progress: number;
-  rating?: number; // 1-5, set by client after completion
+  rating?: number;
   paid?: boolean;
 };
 
@@ -44,6 +44,9 @@ const listeners = new Set<Listener>();
 
 const emit = () => listeners.forEach((l) => l());
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
+// Default fallback location (Manila) when geolocation is unavailable
+const DEFAULT_CENTER: GeoPoint = { lat: 14.5995, lng: 120.9842 };
 
 type CreateInput = {
   client: string;
@@ -72,6 +75,11 @@ export const jobStore = {
       0,
     );
     const total = input.laborCost + materialsCost;
+    const clientLoc: GeoPoint =
+      input.clientLoc ?? {
+        lat: DEFAULT_CENTER.lat + (Math.random() - 0.5) * 0.01,
+        lng: DEFAULT_CENTER.lng + (Math.random() - 0.5) * 0.01,
+      };
     const job: Job = {
       id: nextId++,
       client: input.client,
@@ -88,11 +96,7 @@ export const jobStore = {
       status: "Pending",
       createdAt: Date.now(),
       progress: 0,
-      clientLoc:
-        input.clientLoc ?? {
-          x: 60 + Math.random() * 30,
-          y: 15 + Math.random() * 25,
-        },
+      clientLoc,
     };
     jobs = [job, ...jobs];
     emit();
@@ -108,9 +112,11 @@ export const jobStore = {
         workerVerified: workerName ? true : j.workerVerified,
       };
       if (status === "Accepted" && !next.workerLoc) {
+        // Spawn worker ~1.5km away (roughly 0.013° lat/lng)
+        const angle = Math.random() * Math.PI * 2;
         next.workerLoc = {
-          x: 10 + Math.random() * 20,
-          y: 70 + Math.random() * 20,
+          lat: j.clientLoc.lat + Math.cos(angle) * 0.013,
+          lng: j.clientLoc.lng + Math.sin(angle) * 0.013,
         };
         next.progress = 0;
       }
@@ -151,9 +157,9 @@ function startTick() {
     jobs = jobs.map((j) => {
       if (j.status !== "Worker En Route" || !j.workerLoc) return j;
       const nextProgress = Math.min(100, j.progress + 4);
-      const loc = {
-        x: lerp(j.workerLoc.x, j.clientLoc.x, 0.18),
-        y: lerp(j.workerLoc.y, j.clientLoc.y, 0.18),
+      const loc: GeoPoint = {
+        lat: lerp(j.workerLoc.lat, j.clientLoc.lat, 0.18),
+        lng: lerp(j.workerLoc.lng, j.clientLoc.lng, 0.18),
       };
       changed = true;
       const updated: Job = { ...j, workerLoc: loc, progress: nextProgress };
