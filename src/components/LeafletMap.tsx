@@ -145,6 +145,36 @@ export function LeafletMap({
   );
 }
 
+/** Continuously watch the device position. Returns an unsubscribe function. */
+export function watchPosition(
+  onUpdate: (p: LatLng & { accuracy: number }) => void,
+  onError?: (message: string) => void,
+): () => void {
+  if (typeof navigator === "undefined" || !navigator.geolocation) {
+    onError?.("Geolocation is not supported by this browser");
+    return () => {};
+  }
+  const id = navigator.geolocation.watchPosition(
+    (pos) =>
+      onUpdate({
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+        accuracy: pos.coords.accuracy,
+      }),
+    (err) => {
+      const msg =
+        err.code === 1
+          ? "Location permission denied. Allow location, or open the app in a new tab."
+          : err.code === 2
+            ? "Position unavailable — check that location services are on."
+            : "Location request timed out. Try again.";
+      onError?.(msg);
+    },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 },
+  );
+  return () => navigator.geolocation.clearWatch(id);
+}
+
 /** Request the user's real GPS position. Resolves to null on denial/failure. */
 export function getCurrentPosition(): Promise<LatLng | null> {
   if (typeof navigator === "undefined" || !navigator.geolocation) {
