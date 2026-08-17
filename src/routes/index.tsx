@@ -464,12 +464,30 @@ function ClientDashboard({
                 <div>
                   <p className="text-xs font-semibold">Your Location</p>
                   <p className="text-[10px] text-muted-foreground">
-                    X: {coords.x} · Y: {coords.y}
+                    {gps
+                      ? `${gps.lat.toFixed(5)}, ${gps.lng.toFixed(5)} · ±${Math.round(gps.accuracy)}m`
+                      : gpsError
+                        ? "Location unavailable"
+                        : "Locating…"}
                   </p>
                 </div>
               </div>
-              <Badge variant="secondary" className="text-[10px]">GPS</Badge>
+              <Badge
+                variant={gps ? "default" : "secondary"}
+                className="text-[10px]">
+                {gps ? "GPS Live" : gpsWatching ? "GPS…" : "GPS Off"}
+              </Badge>
             </div>
+            {gpsError && (
+              <div className="mb-2 rounded-lg bg-destructive/10 p-2">
+                <p className="text-[10px] text-destructive leading-snug">{gpsError}</p>
+                <button
+                  onClick={enableGps}
+                  className="mt-1 text-[10px] font-bold underline text-destructive">
+                  Retry GPS
+                </button>
+              </div>
+            )}
             <Input value={address} onChange={(e) => setAddress(e.target.value)}
               placeholder="Search address…" className="h-9" />
           </Card>
