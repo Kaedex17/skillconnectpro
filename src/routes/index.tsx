@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Wrench, Zap, Hammer, Plug, Settings, MapPin, Camera, Upload, Send,
   Home, History, User, Menu, LogOut, Sun, Moon, Plus, Minus, Navigation,
@@ -19,7 +19,7 @@ import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 import { jobStore, useJobs, type Job, type JobStatus, type Material } from "@/lib/jobStore";
-import { LeafletMap, getCurrentPosition } from "@/components/LeafletMap";
+import { LeafletMap, getCurrentPosition, watchPosition } from "@/components/LeafletMap";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
 
@@ -316,7 +316,32 @@ function ClientDashboard({
 }: { dark: boolean; onToggleDark: () => void; onExit: () => void }) {
   const [tab, setTab] = useState<"home" | "history" | "profile" | "menu">("home");
   const [address, setAddress] = useState("123 Rizal St, Manila");
-  const [coords] = useState({ x: 14.5995, y: 120.9842 });
+  const [gps, setGps] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
+  const [gpsError, setGpsError] = useState<string | null>(null);
+  const [gpsWatching, setGpsWatching] = useState(false);
+  const stopWatchRef = useRef<null | (() => void)>(null);
+
+  const enableGps = () => {
+    setGpsError(null);
+    setGpsWatching(true);
+    stopWatchRef.current?.();
+    stopWatchRef.current = watchPosition(
+      (p) => {
+        setGps(p);
+        setGpsError(null);
+      },
+      (msg) => {
+        setGpsError(msg);
+        setGpsWatching(false);
+      },
+    );
+  };
+
+  useEffect(() => {
+    enableGps();
+    return () => stopWatchRef.current?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [problem, setProblem] = useState("");
   const [notes, setNotes] = useState("");
   const [category, setCategory] = useState("electrician");
@@ -389,8 +414,13 @@ function ClientDashboard({
     }
     const cat = CATEGORIES.find((c) => c.v === category)?.label ?? category;
     const validMaterials = materials.filter((m) => m.name.trim() && m.qty > 0);
-    toast.message("Getting your GPS location…");
-    const clientLoc = await getCurrentPosition();
+    let clientLoc: { lat: number; lng: number } | null = gps
+      ? { lat: gps.lat, lng: gps.lng }
+      : null;
+    if (!clientLoc) {
+      toast.message("Getting your GPS location…");
+      clientLoc = await getCurrentPosition();
+    }
     if (!clientLoc) {
       toast.warning("Couldn't access GPS — using approximate location");
     }
@@ -439,12 +469,30 @@ function ClientDashboard({
                 <div>
                   <p className="text-xs font-semibold">Your Location</p>
                   <p className="text-[10px] text-muted-foreground">
-                    X: {coords.x} · Y: {coords.y}
+                    {gps
+                      ? `${gps.lat.toFixed(5)}, ${gps.lng.toFixed(5)} · ±${Math.round(gps.accuracy)}m`
+                      : gpsError
+                        ? "Location unavailable"
+                        : "Locating…"}
                   </p>
                 </div>
               </div>
-              <Badge variant="secondary" className="text-[10px]">GPS</Badge>
+              <Badge
+                variant={gps ? "default" : "secondary"}
+                className="text-[10px]">
+                {gps ? "GPS Live" : gpsWatching ? "GPS…" : "GPS Off"}
+              </Badge>
             </div>
+            {gpsError && (
+              <div className="mb-2 rounded-lg bg-destructive/10 p-2">
+                <p className="text-[10px] text-destructive leading-snug">{gpsError}</p>
+                <button
+                  onClick={enableGps}
+                  className="mt-1 text-[10px] font-bold underline text-destructive">
+                  Retry GPS
+                </button>
+              </div>
+            )}
             <Input value={address} onChange={(e) => setAddress(e.target.value)}
               placeholder="Search address…" className="h-9" />
           </Card>
