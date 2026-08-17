@@ -316,7 +316,32 @@ function ClientDashboard({
 }: { dark: boolean; onToggleDark: () => void; onExit: () => void }) {
   const [tab, setTab] = useState<"home" | "history" | "profile" | "menu">("home");
   const [address, setAddress] = useState("123 Rizal St, Manila");
-  const [coords] = useState({ x: 14.5995, y: 120.9842 });
+  const [gps, setGps] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
+  const [gpsError, setGpsError] = useState<string | null>(null);
+  const [gpsWatching, setGpsWatching] = useState(false);
+  const stopWatchRef = useRef<null | (() => void)>(null);
+
+  const enableGps = () => {
+    setGpsError(null);
+    setGpsWatching(true);
+    stopWatchRef.current?.();
+    stopWatchRef.current = watchPosition(
+      (p) => {
+        setGps(p);
+        setGpsError(null);
+      },
+      (msg) => {
+        setGpsError(msg);
+        setGpsWatching(false);
+      },
+    );
+  };
+
+  useEffect(() => {
+    enableGps();
+    return () => stopWatchRef.current?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [problem, setProblem] = useState("");
   const [notes, setNotes] = useState("");
   const [category, setCategory] = useState("electrician");
