@@ -19,7 +19,7 @@ import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 import { jobStore, useJobs, type Job, type JobStatus, type Material } from "@/lib/jobStore";
-import { LeafletMap, getCurrentPosition } from "@/components/LeafletMap";
+import { LeafletMap, getCurrentPosition, watchPosition } from "@/components/LeafletMap";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
 
