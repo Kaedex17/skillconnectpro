@@ -414,8 +414,13 @@ function ClientDashboard({
     }
     const cat = CATEGORIES.find((c) => c.v === category)?.label ?? category;
     const validMaterials = materials.filter((m) => m.name.trim() && m.qty > 0);
-    toast.message("Getting your GPS location…");
-    const clientLoc = await getCurrentPosition();
+    let clientLoc: { lat: number; lng: number } | null = gps
+      ? { lat: gps.lat, lng: gps.lng }
+      : null;
+    if (!clientLoc) {
+      toast.message("Getting your GPS location…");
+      clientLoc = await getCurrentPosition();
+    }
     if (!clientLoc) {
       toast.warning("Couldn't access GPS — using approximate location");
     }
